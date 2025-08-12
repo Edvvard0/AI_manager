@@ -1,0 +1,30 @@
+from aiogram.types import InlineKeyboardMarkup
+from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+
+def main_keyboard() -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="📈 Мои задачи", callback_data="my_tasks")
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def change_keyboard(task_id: int) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(
+        text="🔄 Обновить статус задачи",
+        callback_data=f"change_status:{task_id}"
+    )
+    kb.adjust(1)
+    return kb.as_markup()
+
+
+def new_status_keyboard(task_id: int) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    kb.button(text="Начал", callback_data=f"status:{task_id}:Начал")
+    kb.button(text="В процессе", callback_data=f"status:{task_id}:В процессе")
+    kb.button(text="На проверке", callback_data=f"status:{task_id}:На проверке")
+    kb.button(text="Готова", callback_data=f"status:{task_id}:Готова")
+    kb.button(text="⬅ Назад", callback_data=f"back_to_task:{task_id}")
+    kb.adjust(1)
+    return kb.as_markup()

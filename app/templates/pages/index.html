@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Chat with GPT{% endblock %}</title>
+    <link href="/static/style/main.css?v=1.0.1" rel="stylesheet" type="text/css">
+    <link href="/static/style/my_style.css?v=1.0.5" rel="stylesheet" type="text/css">
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/meta/apple-touch-icon.png">
+    <link rel="apple-touch-startup-image" href="/static/meta/apple-touch-startup-image-640x1096.png"
+          media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/static/meta/apple-touch-startup-image-640x920.png"
+          media="(device-width: 320px) and (device-height: 480px) and (-webkit-device-pixel-ratio: 2)">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/static/js/tg_config.js?v=1.0.2"></script>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta name="viewport"
+          content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0, maximum-scale=1, user-scalable=no, minimal-ui">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #000000;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background-color: #ffffff;
+            z-index: 10;
+        }
+
+        .menu-button {
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .chat-container {
+            flex: 1;
+            padding: 60px 10px 60px 10px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #d3d3d3; /* Светло-серый обводка */
+            border-radius: 5px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .user-message {
+            background-color: #ffffff;
+            align-self: flex-end;
+            text-align: right;
+            margin-left: auto;
+        }
+
+        .bot-message {
+            background-color: #ffffff;
+            align-self: flex-start;
+            text-align: left;
+            margin-right: auto;
+        }
+
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            padding: 10px;
+            background-color: #ffffff;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #send-button {
+            width: 40px;
+            height: 40px;
+            margin-left: 10px;
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #d3d3d3;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        #send-button:hover {
+            background-color: #e9ecef;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="header">
+    <div class="menu-button" id="menu-button">☰</div>
+</div>
+<div class="chat-container" id="chat-container">
+    <!-- Example messages -->
+    <div class="message bot-message">Привет! Как я могу помочь?</div>
+    <div class="message user-message">Что такое ИИ?</div>
+    <div class="message bot-message">ИИ - это искусственный интеллект, имитация человеческого интеллекта в машинах.</div>
+    <div class="message user-message">Расскажи подробнее.</div>
+    <div class="message bot-message">ИИ включает машинное обучение, нейронные сети и многое другое.</div>
+</div>
+<div class="input-container">
+    <input type="text" id="message-input" placeholder="Введите сообщение...">
+    <button id="send-button">↑</button>
+</div>
+
+<script>
+    // Menu button click (for viewing my chats)
+    document.getElementById('menu-button').addEventListener('click', () => {
+        alert('Просмотр моих чатов (реализуйте логику)');
+    });
+
+    // Send message
+    document.getElementById('send-button').addEventListener('click', () => {
+        const input = document.getElementById('message-input');
+        const message = input.value.trim();
+        if (message) {
+            addMessage(message, 'user');
+            input.value = '';
+
+            // Simulate API call (replace with actual fetch to your FastAPI endpoint)
+            fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: 'user123', text: message })
+            })
+            .then(response => response.json())
+            .then(data => {
+                addMessage(data.response, 'bot');
+            })
+            .catch(error => {
+                addMessage('Ошибка: ' + error.message, 'bot');
+            });
+        }
+    });
+
+    // Add message to chat
+    const addMessage = (text, type) => {
+        const chatContainer = document.getElementById('chat-container');
+        const messageDiv = document.createElement('div');
+        messageDiv.classList.add('message', type === 'user' ? 'user-message' : 'bot-message');
+        messageDiv.textContent = text;
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    };
+
+    // Allow sending message with Enter key
+    document.getElementById('message-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('send-button').click();
+        }
+    });
+
+    // Example of loading full conversation history (from server or local)
+    const loadHistory = () => {
+        const history = [
+            { type: 'bot', text: 'Привет! Как я могу помочь?' },
+            { type: 'user', text: 'Что такое ИИ?' },
+            { type: 'bot', text: 'ИИ - это искусственный интеллект, имитация человеческого интеллекта в машинах.' },
+        ];
+
+        const chatContainer = document.getElementById('chat-container');
+        chatContainer.innerHTML = '';
+        history.forEach(msg => addMessage(msg.text, msg.type));
+    };
+
+    // Call loadHistory() on page load
+    loadHistory();
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

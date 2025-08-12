@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}Mini App{% endblock %}</title>
+
+    <link rel="stylesheet" href="/static/style/base.css">
+    <link rel="icon" href="/static/favicon.ico">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="light-theme">
+
+
+<main class="app-content">
+    {% block content %}{% endblock %}
+</main>
+
+{% block extra_scripts %}{% endblock %}
+<script>
+    // Загружаем сохранённую тему
+    document.addEventListener("DOMContentLoaded", function () {
+        const savedTheme = localStorage.getItem("theme") || "light-theme";
+        document.body.className = savedTheme;
+    });
+
+    // Переключение темы
+    document.getElementById("theme-toggle").addEventListener("click", function () {
+        const isLight = document.body.classList.contains("light-theme");
+        document.body.className = isLight ? "dark-theme" : "light-theme";
+        localStorage.setItem("theme", document.body.className);
+    });
+</script>
+</body>
+</html>

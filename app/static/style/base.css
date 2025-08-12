@@ -1,0 +1,41 @@
+/* Общие стили */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/* Светлая тема */
+body.light-theme {
+    background-color: #ffffff;
+    color: #000000;
+}
+
+/* Тёмная тема */
+body.dark-theme {
+    background-color: #2b2b2b;
+    color: #ffffff;
+}
+
+/* Шапка */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border-bottom: 1px solid gray;
+}
+
+/* Контент */
+.app-content {
+    padding: 20px;
+}
+
+/* Кнопка переключения темы */
+#theme-toggle {
+    cursor: pointer;
+    font-size: 18px;
+    background: none;
+    border: none;
+    color: inherit;
+}
