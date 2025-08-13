@@ -28,7 +28,6 @@
             color: #000000;
             font-family: Arial, sans-serif;
             display: flex;
-            flex-direction: column;
             height: 100vh;
         }
 
@@ -38,27 +37,123 @@
             left: 0;
             right: 0;
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             padding: 10px;
-            background-color: #ffffff;
+            background-color: #202123;
             z-index: 10;
         }
 
         .menu-button {
             font-size: 24px;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 300px;
+            height: 100%;
+            background-color: #202123;
+            transition: left 0.3s ease;
+            padding: 20px 0;
+            z-index: 20;
+            color: #d1d5db;
+        }
+
+        .sidebar.open {
+            left: 0;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: #d1d5db;
+            cursor: pointer;
+        }
+
+        .chat-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .chat-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #343541;
+            font-size: 16px;
+        }
+
+        .chat-item:hover {
+            background-color: #343541;
+        }
+
+        .new-chat-button {
+            padding: 10px 20px;
+            background-color: #10a37f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 90%;
+            margin: 20px auto;
+            display: block;
+            font-size: 14px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+        }
+
+        .modal-content {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+            width: 300px;
+        }
+
+        #chat-name-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        #create-chat-button {
+            padding: 10px 20px;
+            background-color: #10a37f;
+            color: white;
+            border: none;
+            border-radius: 5px;
             cursor: pointer;
         }
 
         .chat-container {
             flex: 1;
-            padding: 60px 10px 60px 10px;
+            padding: 60px 20px 60px 20px;
             overflow-y: auto;
+            margin-left: 0;
         }
 
         .message {
             margin: 10px 0;
             padding: 10px;
-            border: 1px solid #d3d3d3; /* Светло-серый обводка */
+            border: 1px solid #d3d3d3;
             border-radius: 5px;
             max-width: 80%;
             word-wrap: break-word;
@@ -78,14 +173,24 @@
             margin-right: auto;
         }
 
+        .typing-indicator {
+            margin: 10px 0;
+            padding: 10px;
+            color: #666;
+            align-self: flex-start;
+            text-align: left;
+            margin-right: auto;
+        }
+
         .input-container {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
             display: flex;
-            padding: 10px;
+            padding: 10px 20px;
             background-color: #ffffff;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
         }
 
         #message-input {
@@ -120,6 +225,23 @@
 <div class="header">
     <div class="menu-button" id="menu-button">☰</div>
 </div>
+<div class="sidebar" id="sidebar">
+    <div class="close-button" id="close-button">×</div>
+    <h3 style="margin-left: 20px;">Чаты</h3>
+    <ul class="chat-list">
+        <li class="chat-item">Общие вопросы</li>
+        <li class="chat-item">Техническая поддержка</li>
+        <li class="chat-item">Идеи для проектов</li>
+    </ul>
+    <button class="new-chat-button" id="new-chat-button">Создать новый чат</button>
+</div>
+<div class="modal" id="new-chat-modal">
+    <div class="modal-content">
+        <h3>Название нового чата</h3>
+        <input type="text" id="chat-name-input" placeholder="Введите название...">
+        <button id="create-chat-button">Создать</button>
+    </div>
+</div>
 <div class="chat-container" id="chat-container">
     <!-- Example messages -->
     <div class="message bot-message">Привет! Как я могу помочь?</div>
@@ -134,12 +256,49 @@
 </div>
 
 <script>
-    // Menu button click (for viewing my chats)
-    document.getElementById('menu-button').addEventListener('click', () => {
-        alert('Просмотр моих чатов (реализуйте логику)');
+    // Sidebar toggle
+    const sidebar = document.getElementById('sidebar');
+    const menuButton = document.getElementById('menu-button');
+    const closeButton = document.getElementById('close-button');
+    menuButton.addEventListener('click', () => {
+        sidebar.classList.add('open');
+    });
+    closeButton.addEventListener('click', () => {
+        sidebar.classList.remove('open');
     });
 
-    // Send message
+    // New chat modal
+    const newChatButton = document.getElementById('new-chat-button');
+    const newChatModal = document.getElementById('new-chat-modal');
+    const createChatButton = document.getElementById('create-chat-button');
+    newChatButton.addEventListener('click', () => {
+        newChatModal.style.display = 'flex';
+    });
+
+    createChatButton.addEventListener('click', () => {
+        const chatName = document.getElementById('chat-name-input').value.trim();
+        if (chatName) {
+            // Stub for backend request
+            console.log('Отправка запроса на создание чата:', chatName);
+            // Simulate adding new chat to list
+            const chatList = document.querySelector('.chat-list');
+            const newItem = document.createElement('li');
+            newItem.classList.add('chat-item');
+            newItem.textContent = chatName;
+            chatList.appendChild(newItem);
+        }
+        newChatModal.style.display = 'none';
+        document.getElementById('chat-name-input').value = '';
+    });
+
+    // Close modal on outside click
+    newChatModal.addEventListener('click', (e) => {
+        if (e.target === newChatModal) {
+            newChatModal.style.display = 'none';
+        }
+    });
+
+    // Send message with typing indicator
     document.getElementById('send-button').addEventListener('click', () => {
         const input = document.getElementById('message-input');
         const message = input.value.trim();
@@ -147,7 +306,19 @@
             addMessage(message, 'user');
             input.value = '';
 
-            // Simulate API call (replace with actual fetch to your FastAPI endpoint)
+            // Add typing indicator
+            const typingDiv = addTypingIndicator();
+
+            // Stub for backend request (simulate delay)
+            setTimeout(() => {
+                // Simulate response from backend
+                const mockResponse = 'Это ответ заглушка';
+                removeTypingIndicator(typingDiv);
+                addMessage(mockResponse, 'bot');
+            }, 2000); // 2-second delay for simulation
+
+            // Actual fetch (commented out for stub)
+            /*
             fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -155,11 +326,14 @@
             })
             .then(response => response.json())
             .then(data => {
+                removeTypingIndicator(typingDiv);
                 addMessage(data.response, 'bot');
             })
             .catch(error => {
+                removeTypingIndicator(typingDiv);
                 addMessage('Ошибка: ' + error.message, 'bot');
             });
+            */
         }
     });
 
@@ -171,6 +345,22 @@
         messageDiv.textContent = text;
         chatContainer.appendChild(messageDiv);
         chatContainer.scrollTop = chatContainer.scrollHeight;
+    };
+
+    // Add typing indicator
+    const addTypingIndicator = () => {
+        const chatContainer = document.getElementById('chat-container');
+        const typingDiv = document.createElement('div');
+        typingDiv.classList.add('typing-indicator');
+        typingDiv.textContent = 'Печатает...';
+        chatContainer.appendChild(typingDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        return typingDiv;
+    };
+
+    // Remove typing indicator
+    const removeTypingIndicator = (typingDiv) => {
+        typingDiv.remove();
     };
 
     // Allow sending message with Enter key
