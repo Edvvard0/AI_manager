@@ -1,4 +1,6 @@
-from sqlalchemy import select, desc
+from datetime import datetime, timedelta
+
+from sqlalchemy import select, desc, asc
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.chat_gpt.models import Chat, Message
 from app.users.models import User
@@ -47,3 +49,30 @@ class MessageDAO(BaseDAO):
         )
         result = await session.execute(query)
         return result.scalars().all()
+
+    @classmethod
+    async def get_history(cls, session: AsyncSession, chat_id: int, limit: int = 10):
+        query = (
+            select(Message)
+            .where(Message.chat_id == chat_id)
+            .order_by(desc(Message.created_at))
+            .limit(limit)
+        )
+        result = await session.execute(query)
+        messages = list(result.scalars().all())
+
+        return list(reversed(messages))
+
+
+    @classmethod
+    async def get_message_today(cls, session: AsyncSession):
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+
+        query = (
+            select(Message)
+            .where(Message.created_at >= today_start, Message.created_at < today_end)
+            .order_by(asc(Message.created_at))
+        )
+        result = await session.execute(query)
+        return list(result.scalars().all())

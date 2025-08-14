@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from app.chat_gpt.utils import create_response_gpt
-from app.database import get_session
+from app.chat_gpt.utils import create_response_gpt, calculate_daily_usage
+from app.database import get_session, SessionDep
 from app.chat_gpt.dao import ChatDAO, MessageDAO
 
 router = APIRouter(prefix="/chat_gpt", tags=["ChatGPT"])
@@ -46,14 +46,19 @@ async def get_messages(chat_id: int, session: AsyncSession = Depends(get_session
 @router.post("/messages/")
 async def create_message(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
     try:
-        response = await create_response_gpt(content)
+        response = await create_response_gpt(session=session, chat_id=chat_id, text=content)
     except Exception as e:
         return f"произошла ошибка {e}"
 
     await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=content)
     # print(response.text)
-    await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response.output_text)
-    return {"message": response.output_text}
+    await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
+    return {"message": response}
 
+
+@router.get("/test/")
+async def test(session: SessionDep):
+    res = await calculate_daily_usage(session)
+    return res
 
 
