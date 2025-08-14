@@ -56,8 +56,8 @@ async def create_message(chat_id: int, content: str, session: AsyncSession = Dep
     return {"message": response}
 
 
-@router.get("/test/")
-async def test(session: SessionDep):
+@router.get("/token_info/")
+async def token_info(session: SessionDep):
     res = await calculate_daily_usage(session)
     return res
 
