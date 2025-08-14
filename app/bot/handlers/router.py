@@ -2,13 +2,17 @@ from email.policy import default
 
 from aiogram import Router, F
 from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message, CallbackQuery
+from sqlalchemy import select
 
 from app.bot.create_bot import send_task_admin
 from app.users.dao import UserDAO
 from app.tasks.dao import TaskDAO
 from app.bot.keyboards.kbs import main_keyboard, new_status_keyboard, change_keyboard
-from app.database import connection, SessionDep
+from app.database import connection, SessionDep, async_session_maker
+from app.users.models import User
 
 router = Router()
 
@@ -107,3 +111,48 @@ async def back_to_task(call: CallbackQuery, session, **kwargs):
         reply_markup=change_keyboard(task.id)
     )
 
+
+class Registration(StatesGroup):
+    name = State()
+    department = State()
+
+
+@router.message(F.text == "/register")
+async def start_registration(message: Message, state: FSMContext):
+    async with async_session_maker() as session:
+
+        result = await session.execute(
+            select(User).where(User.tg_id == message.from_user.id)
+        )
+        if result.scalar():
+            await message.answer("Вы уже зарегистрированы ✅")
+            return
+
+    await state.set_state(Registration.name)
+    await message.answer("Введите ваше ФИО:")
+
+
+@router.message(Registration.name)
+async def process_name(message: Message, state: FSMContext):
+    await state.update_data(name=message.text)
+    await state.set_state(Registration.department)
+    await message.answer("Введите ваш департамент:")
+
+
+@router.message(Registration.department)
+async def process_department(message: Message, state: FSMContext):
+    data = await state.get_data()
+
+    async with async_session_maker() as session:
+        user = User(
+            name=data["name"],
+            username="@" + str(message.from_user.username),  # Telegram username
+            tg_id=message.from_user.id,           # Telegram ID
+            department=message.text,
+            is_admin=False
+        )
+        session.add(user)
+        await session.commit()
+
+    await message.answer("✅ Вы успешно зарегистрированы!")
+    await state.clear()
