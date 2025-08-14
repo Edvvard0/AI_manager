@@ -15,6 +15,7 @@ class User(Base):
         BigInteger, unique=True, index=True, nullable=True
     )
     department: Mapped[str] = mapped_column(index=True, nullable=False)
+    is_admin: Mapped[bool]= mapped_column(default=False)
 
     tasks: Mapped[list["Task"]] = relationship(
         back_populates="executor", cascade="all, delete-orphan"

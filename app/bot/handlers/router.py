@@ -4,6 +4,7 @@ from aiogram import Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import Message, CallbackQuery
 
+from app.bot.create_bot import send_task_admin
 from app.users.dao import UserDAO
 from app.tasks.dao import TaskDAO
 from app.bot.keyboards.kbs import main_keyboard, new_status_keyboard, change_keyboard
@@ -74,6 +75,10 @@ async def set_new_status(call: CallbackQuery, session, **kwargs):
     task_id = int(task_id)
 
     updated = await TaskDAO.update(session, {"id": task_id}, status=new_status)
+    new_task = await TaskDAO.find_one_or_none_by_id(session, task_id)
+
+    if new_status == "Готово":
+        await send_task_admin(session, new_task)
 
     if updated:
         await call.message.answer(f"✅ Статус задачи обновлён на: <b>{new_status}</b>")

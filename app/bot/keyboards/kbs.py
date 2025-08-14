@@ -24,7 +24,7 @@ def new_status_keyboard(task_id: int) -> InlineKeyboardMarkup:
     kb.button(text="Начал", callback_data=f"status:{task_id}:Начал")
     kb.button(text="В процессе", callback_data=f"status:{task_id}:В процессе")
     kb.button(text="На проверке", callback_data=f"status:{task_id}:На проверке")
-    kb.button(text="Готова", callback_data=f"status:{task_id}:Готова")
+    kb.button(text="Готово", callback_data=f"status:{task_id}:Готово")
     kb.button(text="⬅ Назад", callback_data=f"back_to_task:{task_id}")
     kb.adjust(1)
     return kb.as_markup()

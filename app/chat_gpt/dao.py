@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.chat_gpt.models import Chat, Message
 from app.users.models import User
@@ -14,6 +14,7 @@ class ChatDAO(BaseDAO):
             select(Chat)
             .join(User, Chat.user_id == User.id)
             .where(User.tg_id == tg_id)
+            .order_by(desc(Chat.created_at))
         )
         result = await session.execute(query)
         return result.scalars().all()

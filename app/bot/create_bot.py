@@ -3,7 +3,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from app.config import settings
-from app.bot.handlers.router import router
+
 from app.database import SessionDep
 from app.tasks.schemas import TaskCreate
 from app.users.dao import UserDAO
@@ -29,7 +29,7 @@ async def stop_bot():
 
 
 async def send_task_user(session: SessionDep, new_task: TaskCreate):
-    print("Send message")
+    # print("Send message")
     user = await UserDAO.find_one_or_none(session, **{"id": new_task.executor_id})
     tg_id = user.tg_id
 
@@ -38,6 +38,29 @@ async def send_task_user(session: SessionDep, new_task: TaskCreate):
             chat_id=tg_id,
             text=(
                 f"📌 <b>Новая задача</b>\n\n"
+                f"<b>Название:</b> {new_task.title}\n"
+                f"<b>Описание:</b> {new_task.description}\n"
+                f"<b>Дедлайн:</b> {new_task.deadline_date}\n"
+                f"<b>Статус:</b> {new_task.status}"
+            ),
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Ошибка при отправке уведомления: {e}")
+
+
+async def send_task_admin(session: SessionDep, new_task: TaskCreate):
+
+    admin = await UserDAO.find_one_or_none(session, **{"is_admin": True})
+    executor = await UserDAO.find_one_or_none(session, **{"id": new_task.executor_id})
+    tg_id = admin.tg_id
+
+    try:
+        await bot.send_message(
+            chat_id=tg_id,
+            text=(
+                f"📌 <b>Задача выполнена</b>\n\n"
+                f"<b>Исполнитель:</b> {executor.name}\n"
                 f"<b>Название:</b> {new_task.title}\n"
                 f"<b>Описание:</b> {new_task.description}\n"
                 f"<b>Дедлайн:</b> {new_task.deadline_date}\n"

@@ -4,16 +4,16 @@ from openai import AsyncOpenAI, OpenAI
 
 from app.config import settings
 
-client = AsyncOpenAI(api_key="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")
+client = AsyncOpenAI(api_key=settings.CHAT_GPT_API_KEY)
 
 async def create_response_gpt(text: str):
-    # response = await client.responses.create(
-    #     model="gpt-4.1",
-    #     input=text
-    # )
-    # print(response)
-    # return response
-    return "Сообщение от нейросети"
+    response = await client.responses.create(
+        model="gpt-4.1",
+        input=text
+    )
+    # print(response.output_text)
+    return response
+    # return "Сообщение от нейросети"
 
 # def ask_gpt(chat_id, user_message):
 #     # 1. Получаем историю чата
@@ -33,6 +33,6 @@ async def create_response_gpt(text: str):
 #
 #     return completion.choices[0].message.content
 
-# if __name__ == "__main__":
-#     asyncio.run(create_response_gpt(" в чем различия intel и amd"))
+if __name__ == "__main__":
+    asyncio.run(create_response_gpt("хранит ли gpt контекст диалога если я подключаюсь по api. и как это сделать"))
 

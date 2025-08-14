@@ -2,36 +2,276 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>{% block title %}Mini App{% endblock %}</title>
+    <title>{% block title %}Chat with GPT{% endblock %}</title>
+    <link href="/static/style/main.css?v=1.0.1" rel="stylesheet" type="text/css">
+    <link href="/static/style/my_style.css?v=1.0.5" rel="stylesheet" type="text/css">
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="apple-touch-icon" href="/static/meta/apple-touch-icon.png">
+    <link rel="apple-touch-startup-image" href="/static/meta/apple-touch-startup-image-640x1096.png"
+          media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/static/meta/apple-touch-startup-image-640x920.png"
+          media="(device-width: 320px) and (device-height: 480px) and (-webkit-device-pixel-ratio: 2)">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/static/js/tg_config.js?v=1.0.2"></script>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="HandheldFriendly" content="True">
+    <meta name="MobileOptimized" content="320">
+    <meta name="viewport"
+          content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0, maximum-scale=1, user-scalable=no, minimal-ui">
 
-    <link rel="stylesheet" href="/static/style/base.css">
-    <link rel="icon" href="/static/favicon.ico">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #ffffff;
+            color: #000000;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+        }
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: flex-start;
+            padding: 10px;
+            background-color: #202123;
+            z-index: 10;
+        }
 
+        .menu-button {
+            font-size: 24px;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: -300px;
+            width: 300px;
+            height: 100%;
+            background-color: #202123;
+            transition: left 0.3s ease;
+            padding: 20px 0;
+            z-index: 20;
+            color: #d1d5db;
+        }
+
+        .sidebar.open {
+            left: 0;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            color: #d1d5db;
+            cursor: pointer;
+        }
+
+        .chat-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .chat-item {
+            padding: 15px 20px;
+            cursor: pointer;
+            border-bottom: 1px solid #343541;
+            font-size: 16px;
+        }
+
+        .chat-item:hover {
+            background-color: #343541;
+        }
+
+        .new-chat-button {
+            padding: 10px 20px;
+            background-color: #10a37f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 90%;
+            margin: 20px auto;
+            display: block;
+            font-size: 14px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+        }
+
+        .modal-content {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+            width: 300px;
+            box-sizing: border-box;
+            max-width: 90%;
+        }
+
+        #chat-name-input {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        #create-chat-button {
+            padding: 10px 20px;
+            background-color: #10a37f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: calc(100% - 20px);
+        }
+    </style>
     {% block extra_head %}{% endblock %}
 </head>
-<body class="light-theme">
-
-
-<main class="app-content">
-    {% block content %}{% endblock %}
-</main>
-
+<body>
+<div class="header">
+    <div class="menu-button" id="menu-button">☰</div>
+</div>
+<div class="sidebar" id="sidebar">
+    <div class="close-button" id="close-button">×</div>
+    <h3 style="margin-left: 20px;">Чаты</h3>
+    <ul class="chat-list" id="chat-list">
+        <!-- Чаты будут добавлены динамически -->
+    </ul>
+    <button class="new-chat-button" id="new-chat-button">Создать новый чат</button>
+</div>
+<div class="modal" id="new-chat-modal">
+    <div class="modal-content">
+        <input type="text" id="chat-name-input" placeholder="Введите название чата...">
+        <button id="create-chat-button">Создать</button>
+    </div>
+</div>
+{% block content %}{% endblock %}
 {% block extra_scripts %}{% endblock %}
+</body>
 <script>
-    // Загружаем сохранённую тему
-    document.addEventListener("DOMContentLoaded", function () {
-        const savedTheme = localStorage.getItem("theme") || "light-theme";
-        document.body.className = savedTheme;
-    });
+    // Ensure DOM is fully loaded before adding event listeners
+    document.addEventListener('DOMContentLoaded', () => {
+        const sidebar = document.getElementById('sidebar');
+        const menuButton = document.getElementById('menu-button');
+        const closeButton = document.getElementById('close-button');
+        if (!menuButton) console.error('menu-button not found in DOM');
+        if (!sidebar) console.error('sidebar not found in DOM');
 
-    // Переключение темы
-    document.getElementById("theme-toggle").addEventListener("click", function () {
-        const isLight = document.body.classList.contains("light-theme");
-        document.body.className = isLight ? "dark-theme" : "light-theme";
-        localStorage.setItem("theme", document.body.className);
+        menuButton.addEventListener('click', () => {
+            console.log('Menu button clicked');
+            sidebar.classList.add('open');
+            const userId = localStorage.getItem('userId');
+            if (userId) {
+                console.log('Fetching chats for userId:', userId);
+                fetchChats(userId).then(() => {
+                    console.log('Chats fetched and rendered');
+                }).catch(error => {
+                    console.error('Failed to fetch chats:', error);
+                });
+            } else {
+                console.error('User ID not found in localStorage. Ensure tg_config.js is loaded and executed.');
+            }
+        });
+
+        closeButton.addEventListener('click', () => {
+            sidebar.classList.remove('open');
+        });
+
+        // New chat modal
+        const newChatButton = document.getElementById('new-chat-button');
+        const newChatModal = document.getElementById('new-chat-modal');
+        const createChatButton = document.getElementById('create-chat-button');
+        if (!newChatButton) console.error('new-chat-button not found in DOM');
+        if (!newChatModal) console.error('new-chat-modal not found in DOM');
+        if (!createChatButton) console.error('create-chat-button not found in DOM');
+
+        newChatButton.addEventListener('click', () => {
+            newChatModal.style.display = 'flex';
+        });
+
+        createChatButton.addEventListener('click', () => {
+            const chatName = document.getElementById('chat-name-input').value.trim();
+            const userId = localStorage.getItem('userId');
+            if (chatName && userId) {
+                console.log('Creating chat with name:', chatName, 'for userId:', userId);
+                fetch(`/chat_gpt/chats/?tg_id=${userId}&title=${encodeURIComponent(chatName)}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Chat created response:', data);
+                    fetchChats(userId).then(() => {
+                        console.log('Chat list updated after creation');
+                    }).catch(error => {
+                        console.error('Failed to update chat list:', error);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error creating chat:', error);
+                });
+            } else {
+                console.error('Chat name or userId is missing');
+            }
+            newChatModal.style.display = 'none';
+            document.getElementById('chat-name-input').value = '';
+        });
+
+        // Close modal on outside click
+        newChatModal.addEventListener('click', (e) => {
+            if (e.target === newChatModal) {
+                newChatModal.style.display = 'none';
+            }
+        });
+
+        // Fetch chats from backend
+        async function fetchChats(userId) {
+            try {
+                const response = await fetch(`/chat_gpt/chats/${userId}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const chats = await response.json();
+                console.log('Received chats from server:', chats);
+                const chatList = document.getElementById('chat-list');
+                if (!chatList) console.error('chat-list not found in DOM');
+                chatList.innerHTML = '';
+                chats.forEach(chat => {
+                    const chatItem = document.createElement('li');
+                    chatItem.classList.add('chat-item');
+                    chatItem.textContent = chat.title;
+                    chatItem.addEventListener('click', () => {
+                        window.location.href = `/pages/current_chat/${chat.id}`;
+                    });
+                    chatList.appendChild(chatItem);
+                });
+            } catch (error) {
+                console.error('Ошибка при загрузке чатов:', error);
+            }
+        }
     });
 </script>
-</body>
 </html>
