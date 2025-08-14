@@ -1,43 +1,23 @@
-import asyncio
-from datetime import datetime, timedelta
-
-from openai import AsyncOpenAI, OpenAI
 import tiktoken
-from sqlalchemy import select, asc
 
-from app.chat_gpt.dao import ChatDAO, MessageDAO
-from app.chat_gpt.models import Message
+from app.chat_gpt.dao import MessageDAO
 from app.config import settings
-from app.database import SessionDep, async_session_maker, get_session
-
-client = AsyncOpenAI(api_key=settings.CHAT_GPT_API_KEY)
+from app.database import SessionDep
 
 
-async def get_last_messages(session: SessionDep, chat_id: int):
-    messages = await MessageDAO.get_history(session, chat_id)
-    return  messages
+SYSTEM_PROMPT = """
+Отвечай строго в формате JSON, соответствующем этой Pydantic-модели:
 
+{
+    "title": "string — название задачи",
+    "description": "string — описание задачи",
+    "deadline_date": "YYYY-MM-DD",
+    "executor_id": int,
+    "status": "Начал" 
+}
 
-async def create_response_gpt(session: SessionDep, text: str, chat_id: int):
-    messages = await get_last_messages(session, chat_id)
-
-    gpt_input = []
-    for msg in messages:
-        gpt_input.append({
-            "role": "user" if msg.is_user else "assistant",
-            "content": msg.content
-        })
-
-    gpt_input.append({"role": "user", "content": text})
-
-    response = await client.responses.create(
-        model=settings.CHAT_GPT_MODEL,
-        input=gpt_input
-    )
-
-    # print(response.output_text)
-    return response.output_text
-    # return "Сообщение от нейросети"
+Не добавляй ничего кроме JSON.
+"""
 
 
 def count_tokens(messages, model):
@@ -89,14 +69,3 @@ async def calculate_daily_usage(session: SessionDep, history_limit=10):
         "output_cost_usd": round(output_cost, 4),
         "total_cost_usd": round(total_cost, 4),
     }
-
-
-async def main():
-    async with async_session_maker() as session:
-        print(await calculate_daily_usage(session))
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
-    # asyncio.run(create_response_gpt("хранит ли gpt контекст диалога если я подключаюсь по api. и как это сделать"))
-

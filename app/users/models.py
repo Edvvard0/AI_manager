@@ -11,6 +11,7 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str]
+    username: Mapped[str] = mapped_column(nullable=True)
     tg_id: Mapped[int] = mapped_column(
         BigInteger, unique=True, index=True, nullable=True
     )

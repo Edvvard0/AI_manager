@@ -4,7 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from app.chat_gpt.utils import create_response_gpt, calculate_daily_usage
+from app.chat_gpt.utils.utils import create_response_gpt
+from app.chat_gpt.utils.utils_token import calculate_daily_usage
 from app.database import get_session, SessionDep
 from app.chat_gpt.dao import ChatDAO, MessageDAO
 
