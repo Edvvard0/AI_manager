@@ -4,6 +4,8 @@ import re
 
 from openai import AsyncOpenAI
 from pyasn1_modules.rfc5990 import aes128_Wrap
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from app.bot.create_bot import send_task_user
 from app.chat_gpt.dao import  MessageDAO
@@ -12,10 +14,38 @@ from app.chat_gpt.utils.utils_token import SYSTEM_PROMPT
 from app.config import settings
 from app.database import SessionDep, async_session_maker
 from app.tasks.dao import TaskDAO
+from app.tasks.models import Task
 from app.tasks.schemas import TaskCreate
 from app.users.dao import UserDAO
 
 client = AsyncOpenAI(api_key=settings.CHAT_GPT_API_KEY)
+
+
+def format_text(text: str):
+    text = re.sub(r'}\s*{', '},{', text.strip())
+    json_array_str = f"[{text}]"
+    tasks = json.loads(json_array_str)
+
+    # Карта ключей
+    key_map = {
+        "title": "Название",
+        "description": "Описание",
+        "deadline_date": "Дедлайн",
+        "executor_id": "ID исполнителя",
+        "status": "Статус"
+    }
+
+    # Форматируем в Markdown
+    md_lines = []
+    for i, task in enumerate(tasks, start=1):
+        md_lines.append(f"### 📝 Задача {i}")
+        for key, value in task.items():
+            md_lines.append(f"**{key_map.get(key, key)}:** {value}")
+        md_lines.append("")  # пустая строка между задачами
+
+    markdown_output = "\n".join(md_lines)
+    print(markdown_output)
+    return markdown_output
 
 
 async def check_keywords(session, text: str, chat_id: int):
@@ -45,10 +75,20 @@ async def get_worker_info(session: SessionDep):
 
 
 async def get_tasks_info(session: SessionDep):
-    tasks = await TaskDAO.find_all(session)
-    # print(tasks[0].title)
-    summary = "\n".join(f"{t.title} — {t.status}  Описание задачи: {t.description}, Дедлайн {t.deadline_date}," for t in tasks)
-    # print(summary)
+    tasks = await session.execute(
+        select(Task).options(joinedload(Task.executor))
+    )
+    tasks = tasks.scalars().all()
+
+    summary = "\n".join(
+        f"{t.title} — {t.status} | \n"
+        f"Описание: {t.description} \n "
+        f"Дедлайн: {t.deadline_date} \n"
+        f"Исполнитель: {t.executor.name if t.executor else '—'} \n"
+        f"({t.executor.username if t.executor and t.executor.username else '—'})\n"
+        for t in tasks
+    )
+
     return f"Информация по задачам:\n{summary}"
 
 
@@ -101,6 +141,8 @@ async def create_response_gpt(session: SessionDep, text: str, chat_id: int):
 
                 await TaskDAO.add(session, **task.model_dump())
                 await send_task_user(session, task)
+
+            return format_text(response.output_text)
 
         except Exception as e:
             print(f"[ERROR PARSING TASK] {e}")
