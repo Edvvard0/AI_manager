@@ -1,10 +1,13 @@
 # app/chat_gpt/router.py
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, Form, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
+from starlette.responses import JSONResponse
+
 from app.chat_gpt.utils.utils import create_response_gpt
+from app.chat_gpt.utils.utils_docx import process_docx_file
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
 from app.database import get_session, SessionDep
 from app.chat_gpt.dao import ChatDAO, MessageDAO
@@ -62,4 +65,32 @@ async def token_info(session: SessionDep):
     res = await calculate_daily_usage(session)
     return res
 
+
+
+@router.post("/process-docx/")
+async def process_docx_file_and_prompt(
+        session: SessionDep,
+        chat_id: int,
+        prompt: str = Form(...),
+        file: UploadFile = File(...)
+):
+    try:
+        # Проверяем расширение файла
+        if not file.filename.lower().endswith('.docx'):
+            raise HTTPException(status_code=400, detail="Поддерживаются только .docx файлы")
+
+        file_content = await process_docx_file(file)
+        prompt = prompt + f"Содержимое файла {file_content}"
+        response = await create_response_gpt(text=prompt, chat_id=chat_id, session=session)
+
+        await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
+        await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
+
+        return JSONResponse(content={
+            "response": response,
+        })
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
 

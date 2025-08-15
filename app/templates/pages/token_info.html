@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    {% include 'base.html' %}
+    <style>
+        .token-info-container {
+            padding: 60px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .token-info-item {
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            width: 80%;
+            max-width: 400px;
+            text-align: left;
+        }
+
+        .token-info-item span {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    {% block content %}
+    <div class="token-info-container">
+        <h2>Информация о токенах</h2>
+        <div class="token-info-item">
+            <span>Модель:</span> {{ token_info.model }}
+        </div>
+        <div class="token-info-item">
+            <span>Входные токены:</span> {{ token_info.input_tokens }}
+        </div>
+        <div class="token-info-item">
+            <span>Выходные токены:</span> {{ token_info.output_tokens }}
+        </div>
+        <div class="token-info-item">
+            <span>Стоимость входных токенов (USD):</span> {{ token_info.input_cost_usd }}
+        </div>
+        <div class="token-info-item">
+            <span>Стоимость выходных токенов (USD):</span> {{ token_info.output_cost_usd }}
+        </div>
+        <div class="token-info-item">
+            <span>Общая стоимость (USD):</span> {{ token_info.total_cost_usd }}
+        </div>
+        <button onclick="window.location.href='/pages/'" style="padding: 10px 20px; background-color: #10a37f; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 20px;">Назад</button>
+    </div>
+    {% endblock %}
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

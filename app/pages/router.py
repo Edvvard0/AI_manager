@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
+from app.chat_gpt.router import token_info
 
 from app.chat_gpt.router import get_chats, get_messages
 
@@ -24,3 +25,10 @@ async def current_chat_page(request: Request, messages = Depends(get_messages)):
         "messages": messages
     })
 
+
+@router.get("/token_info", response_class=HTMLResponse)
+async def token_info(request: Request, token_info = Depends(token_info)):
+    return templates.TemplateResponse("pages/token_info.html", {
+        "request": request,
+        "token_info": token_info
+    })
