@@ -19,10 +19,11 @@ async def main_page(request: Request):
 
 
 @router.get("/current_chat/{chat_id}", response_class=HTMLResponse)
-async def current_chat_page(request: Request, messages = Depends(get_messages)):
+async def current_chat_page(request: Request, chat_id: int,  messages = Depends(get_messages)):
     return templates.TemplateResponse("pages/current_chat.html", {
         "request": request,
-        "messages": messages
+        "messages": messages,
+        "chat_id": chat_id
     })
 
 

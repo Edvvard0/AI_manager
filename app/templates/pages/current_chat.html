@@ -16,7 +16,6 @@
         .message {
             margin: 10px 0;
             padding: 10px;
-            border: 1px solid #d3d3d3;
             border-radius: 5px;
             max-width: 80%;
             word-wrap: break-word;
@@ -53,21 +52,21 @@
         }
 
         .message-content pre {
-            overflow-x: auto; /* Добавляет горизонтальную прокрутку для блока кода */
-            white-space: pre; /* Сохраняет пробелы и переносы строк в коде */
-            background-color: #f4f4f4; /* Фон для блока кода для лучшей видимости */
+            overflow-x: auto;
+            white-space: pre;
+            background-color: #f4f4f4;
             padding: 10px;
             border-radius: 5px;
-            max-width: 100%; /* Ограничивает ширину блока кода */
+            max-width: 100%;
             box-sizing: border-box;
         }
 
         .message-content code {
-            background-color: #f4f4f4; /* Фон для инлайн-кода */
+            background-color: #f4f4f4;
             padding: 2px 4px;
             border-radius: 3px;
-            white-space: pre-wrap; /* Обтекание для инлайн-кода */
-            word-break: break-all; /* Перенос длинных строк в инлайн-коде */
+            white-space: pre-wrap;
+            word-break: break-all;
         }
 
         .typing-indicator {
@@ -133,9 +132,8 @@
     {% endblock %}
     {% block extra_scripts %}
     <script>
-        // Extract chat_id from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const chatId = urlParams.get('chat_id') || '1'; // Default to 1 if not found
+        // Get chat_id from Jinja2 template variable
+        const chatId = {{ chat_id }};
 
         // Render Markdown for existing messages
         document.querySelectorAll('.message-content').forEach(content => {
@@ -151,15 +149,22 @@
                 addMessage(message, true);
                 input.value = '';
 
+                // Show chat_id for verification
+                alert(`Отправка сообщения в чат с ID: ${chatId}`);
+
                 // Add typing indicator
                 const typingDiv = addTypingIndicator();
 
-                // Send request to backend
-                fetch(`/chat_gpt/messages/?chat_id=${chatId}&content=${encodeURIComponent(message)}`, {
+                // Send request to backend with JSON body
+                fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: chatId, content: message }) // Match SMessageAdd model
                 })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.json();
+                })
                 .then(data => {
                     removeTypingIndicator(typingDiv);
                     addMessage(data.message, false); // Display bot response with Markdown
@@ -167,6 +172,7 @@
                 .catch(error => {
                     removeTypingIndicator(typingDiv);
                     addMessage('Ошибка: ' + error.message, false);
+                    console.error('Fetch error:', error);
                 });
             }
         });
@@ -210,3 +216,4 @@
     </script>
     {% endblock %}
 </body>
+</html>
