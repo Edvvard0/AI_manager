@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from datetime import date
@@ -7,6 +7,7 @@ from app.bot.create_bot import send_task_user
 from app.database import get_session, SessionDep
 from app.tasks.dao import TaskDAO
 from app.tasks.schemas import TaskOut, TaskCreate, TaskUpdate
+from app.tasks.utils import save_uploaded_file
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -16,6 +17,23 @@ async def create_task(task_data: TaskCreate, session: AsyncSession = Depends(get
     await TaskDAO.add(session, **task_data.dict())
     await send_task_user(session, task_data)
     return {"message": "задача успешно создана"}
+
+
+@router.post("/upload_file/{task_id}")
+async def upload_file_for_task(session: SessionDep, task_id: int, file: UploadFile = File(...)):
+    task = await TaskDAO.find_one_or_none_by_id(session, task_id)
+    file_path = None
+    if file and file.filename:
+        file_path = await save_uploaded_file(file)
+
+    if file_path:
+        task.file_path = file_path
+
+    await session.commit()
+
+    return {
+        "message": "файл успешно сохранен",
+    }
 
 
 # Получить все задачи

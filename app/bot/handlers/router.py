@@ -186,7 +186,7 @@ async def my_tasks_handler(message: Message, session, **kwargs):
         if task.file_path:
             await send_file(
                 chat_id=message.chat.id,
-                file_path=f"data_files/{task.file_path}",
+                file_path=f"{task.file_path}",
                 caption="Файл к проекту"
             )
 
