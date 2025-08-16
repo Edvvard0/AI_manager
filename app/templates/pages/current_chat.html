@@ -8,7 +8,6 @@
             flex: 1;
             padding: 60px 20px 60px 20px;
             overflow-y: auto;
-            margin-left: 0;
             display: flex;
             flex-direction: column;
         }
@@ -19,73 +18,60 @@
             border-radius: 5px;
             max-width: 80%;
             word-wrap: break-word;
-            text-align: left;
-            box-sizing: border-box;
         }
 
         .user-message {
             background-color: #ffffff;
             align-self: flex-end;
-            margin-left: auto;
         }
 
         .bot-message {
             background-color: #ffffff;
             align-self: flex-start;
-            margin-right: auto;
         }
 
-        .message-content {
-            width: 100%;
-            overflow-wrap: break-word;
-            word-break: break-word;
-            box-sizing: border-box;
-        }
-
-        .message-content p {
-            margin: 0 0 10px 0;
-        }
-
-        .message-content ul, .message-content ol {
-            margin: 0 0 10px 20px;
-            padding-left: 20px;
-        }
-
-        .message-content pre {
-            overflow-x: auto;
-            white-space: pre;
-            background-color: #f4f4f4;
-            padding: 10px;
-            border-radius: 5px;
-            max-width: 100%;
-            box-sizing: border-box;
-        }
-
-        .message-content code {
-            background-color: #f4f4f4;
-            padding: 2px 4px;
-            border-radius: 3px;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
-
-        .typing-indicator {
-            margin: 10px 0;
-            padding: 10px;
-            color: #666;
-            align-self: flex-start;
-            margin-right: auto;
-        }
-
-        .input-container {
+        .input-wrapper {
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            display: flex;
-            padding: 10px 20px;
             background-color: #ffffff;
             box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            padding: 10px 20px;
+        }
+
+        .file-preview-container {
+            margin-bottom: 8px;
+        }
+
+        .file-preview {
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #333;
+            background-color: #f1f1f1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin-right: 6px;
+            max-width: 250px;
+        }
+
+        .file-remove {
+            margin-left: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .file-remove:hover {
+            color: #000;
+        }
+
+        .input-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         #message-input {
@@ -95,10 +81,9 @@
             border-radius: 5px;
         }
 
-        #send-button {
+        .round-button {
             width: 40px;
             height: 40px;
-            margin-left: 10px;
             background-color: #ffffff;
             color: #000000;
             border: 1px solid #d3d3d3;
@@ -110,110 +95,181 @@
             font-size: 20px;
         }
 
-        #send-button:hover {
+        .round-button:hover {
             background-color: #e9ecef;
+        }
+
+        #file-input {
+            display: none;
         }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    {% block content %}
+{% block content %}
     <div class="chat-container" id="chat-container">
         {% for msg in messages %}
             <div class="message {% if msg.is_user %}user-message{% else %}bot-message{% endif %}">
-                <div class="message-content" id="message-content-{{ loop.index }}">{{ msg.content | safe }}</div>
+                {% if msg.file_name %}
+                    <div class="file-preview">{{ msg.file_name }}</div>
+                {% endif %}
+                <div class="message-content">{{ msg.content | safe }}</div>
             </div>
         {% endfor %}
     </div>
-    <div class="input-container">
-        <input type="text" id="message-input" placeholder="Введите сообщение...">
-        <button id="send-button">↑</button>
+
+    <div class="input-wrapper">
+        <div class="file-preview-container" id="file-preview-container"></div>
+        <div class="input-container">
+            <input type="file" id="file-input" accept=".pdf,.txt,.docx,.md,.csv">
+            <button id="file-button" class="round-button">+</button>
+            <input type="text" id="message-input" placeholder="Введите сообщение...">
+            <button id="send-button" class="round-button">↑</button>
+        </div>
     </div>
-    {% endblock %}
-    {% block extra_scripts %}
-    <script>
-        // Get chat_id from Jinja2 template variable
-        const chatId = {{ chat_id }};
+{% endblock %}
 
-        // Render Markdown for existing messages
-        document.querySelectorAll('.message-content').forEach(content => {
-            const text = content.textContent;
-            content.innerHTML = marked.parse(text);
+{% block extra_scripts %}
+<script>
+    const chatId = {{ chat_id }};
+    const fileInput = document.getElementById("file-input");
+    const fileButton = document.getElementById("file-button");
+    const filePreviewContainer = document.getElementById("file-preview-container");
+    let selectedFile = null;
+
+    // Открыть диалог выбора файла
+    fileButton.addEventListener("click", () => fileInput.click());
+
+    // При выборе файла показать превью
+    fileInput.addEventListener("change", () => {
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            const allowedTypes = [
+                "application/pdf",
+                "text/plain",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "text/markdown",
+                "text/csv",
+                "application/vnd.ms-excel"
+            ];
+            if (!allowedTypes.includes(file.type) && !file.name.endsWith(".md")) {
+                alert("Этот тип файла не поддерживается. Разрешены: PDF, TXT, DOCX, MD, CSV");
+                fileInput.value = "";
+                selectedFile = null;
+                return;
+            }
+            selectedFile = file;
+            renderFilePreview(file.name);
+        }
+    });
+
+    const renderFilePreview = (fileName) => {
+        filePreviewContainer.innerHTML = ""; // очищаем старые превью
+        const preview = document.createElement("div");
+        preview.className = "file-preview";
+        preview.innerHTML = `
+            <span>${fileName}</span>
+            <span class="file-remove">×</span>
+        `;
+        preview.querySelector(".file-remove").addEventListener("click", () => {
+            selectedFile = null;
+            fileInput.value = "";
+            preview.remove();
         });
+        filePreviewContainer.appendChild(preview);
+    };
 
-        // Send message with typing indicator
-        document.getElementById('send-button').addEventListener('click', () => {
-            const input = document.getElementById('message-input');
-            const message = input.value.trim();
-            if (message) {
-                addMessage(message, true);
-                input.value = '';
+    document.getElementById("send-button").addEventListener("click", async () => {
+        const input = document.getElementById("message-input");
+        const message = input.value.trim();
 
-                // Show chat_id for verification
-                alert(`Отправка сообщения в чат с ID: ${chatId}`);
+        if (!message && !selectedFile) return;
 
-                // Add typing indicator
-                const typingDiv = addTypingIndicator();
+        // очищаем поле сразу после клика (как в chatgpt.com)
+        input.value = "";
 
-                // Send request to backend with JSON body
-                fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chat_id: chatId, content: message }) // Match SMessageAdd model
-                })
-                .then(response => {
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    return response.json();
-                })
-                .then(data => {
-                    removeTypingIndicator(typingDiv);
-                    addMessage(data.message, false); // Display bot response with Markdown
-                })
-                .catch(error => {
-                    removeTypingIndicator(typingDiv);
-                    addMessage('Ошибка: ' + error.message, false);
-                    console.error('Fetch error:', error);
+        addMessage(message || "[Файл отправлен]", true, selectedFile?.name);
+        const typingDiv = addTypingIndicator();
+
+        try {
+            let response;
+            if (selectedFile) {
+                const formData = new FormData();
+                formData.append("prompt", message || "");
+                formData.append("file", selectedFile);
+
+                response = await fetch(`/chat_gpt/ask?chat_id=${chatId}`, {
+                    method: "POST",
+                    body: formData
+                });
+            } else {
+                response = await fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ chat_id: chatId, content: message })
                 });
             }
-        });
 
-        // Add message to chat
-        const addMessage = (text, isUser) => {
-            const chatContainer = document.getElementById('chat-container');
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-            messageDiv.classList.add(isUser ? 'user-message' : 'bot-message');
-            const contentDiv = document.createElement('div');
-            contentDiv.classList.add('message-content');
-            contentDiv.innerHTML = marked.parse(text); // Render Markdown
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+
+            removeTypingIndicator(typingDiv);
+            addMessage(data.message || data.answer, false);
+
+            // сбрасываем файл
+            fileInput.value = "";
+            selectedFile = null;
+            filePreviewContainer.innerHTML = "";
+        } catch (error) {
+            removeTypingIndicator(typingDiv);
+            addMessage("Ошибка: " + error.message, false);
+            console.error("Fetch error:", error);
+        }
+    });
+
+    const addMessage = (text, isUser, fileName=null) => {
+        if (!text && !fileName) return;
+        const chatContainer = document.getElementById("chat-container");
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message");
+        messageDiv.classList.add(isUser ? "user-message" : "bot-message");
+
+        if (fileName) {
+            const fileDiv = document.createElement("div");
+            fileDiv.classList.add("file-preview");
+            fileDiv.textContent = fileName;
+            messageDiv.appendChild(fileDiv);
+        }
+
+        if (text) {
+            const contentDiv = document.createElement("div");
+            contentDiv.classList.add("message-content");
+            contentDiv.innerHTML = marked.parse(text);
             messageDiv.appendChild(contentDiv);
-            chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        };
+        }
 
-        // Add typing indicator
-        const addTypingIndicator = () => {
-            const chatContainer = document.getElementById('chat-container');
-            const typingDiv = document.createElement('div');
-            typingDiv.classList.add('typing-indicator');
-            typingDiv.textContent = 'Печатает...';
-            chatContainer.appendChild(typingDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-            return typingDiv;
-        };
+        chatContainer.appendChild(messageDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    };
 
-        // Remove typing indicator
-        const removeTypingIndicator = (typingDiv) => {
-            typingDiv.remove();
-        };
+    const addTypingIndicator = () => {
+        const chatContainer = document.getElementById("chat-container");
+        const typingDiv = document.createElement("div");
+        typingDiv.classList.add("typing-indicator");
+        typingDiv.textContent = "Печатает...";
+        chatContainer.appendChild(typingDiv);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+        return typingDiv;
+    };
 
-        // Allow sending message with Enter key
-        document.getElementById('message-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                document.getElementById('send-button').click();
-            }
-        });
-    </script>
-    {% endblock %}
+    const removeTypingIndicator = (typingDiv) => typingDiv.remove();
+
+    document.getElementById("message-input").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            document.getElementById("send-button").click();
+        }
+    });
+</script>
+{% endblock %}
 </body>
 </html>

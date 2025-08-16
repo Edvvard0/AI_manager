@@ -1,10 +1,12 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
 class ChatOut(BaseModel):
     id: int
     title: str
-    created_at: str
+    created_at: datetime
 
 
 class SMessageAdd(BaseModel):

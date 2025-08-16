@@ -7,9 +7,11 @@ from typing import List
 from starlette.responses import JSONResponse
 
 from app.chat_gpt.schemas import ChatOut, SMessageAdd
-from app.chat_gpt.utils.utils import create_response_gpt
+from app.chat_gpt.utils.utils import create_response_gpt, client
 from app.chat_gpt.utils.utils_docx import process_docx_file
+from app.chat_gpt.utils.utils_file import create_file
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
+from app.config import settings
 from app.database import get_session, SessionDep
 from app.chat_gpt.dao import ChatDAO, MessageDAO
 
@@ -26,27 +28,9 @@ async def create_chat(tg_id: int, title: str, session: AsyncSession = Depends(ge
 
 
 @router.get("/chats/{tg_id}")
-async def get_chats(tg_id: int, session: AsyncSession = Depends(get_session)):
-    try:
-        chats = await ChatDAO.get_chats_by_tg_id(session, tg_id)
-        if not chats:
-            return JSONResponse(content=[], headers={"Content-Type": "application/json"})
-
-        chat_data = [
-            {
-                "id": chat.id,
-                "title": chat.title,
-                "created_at": chat.created_at.isoformat() if chat.created_at else None
-            }
-            for chat in chats
-        ]
-        return JSONResponse(content=chat_data, headers={"Content-Type": "application/json"})
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Ошибка при получении чатов: {str(e)}"},
-            headers={"Content-Type": "application/json"}
-        )
+async def get_chats(tg_id: int, session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
+    chats = await ChatDAO.get_chats_by_tg_id(session, tg_id)
+    return chats
 
 
 @router.get("/messages/{chat_id}", response_model=List[dict])
@@ -84,32 +68,21 @@ async def token_info(session: SessionDep):
     return res
 
 
+@router.post("/ask")
+async def ask_gpt(session: SessionDep, chat_id: int, prompt: str = Form(...), file: UploadFile = File(...)):
+    # 1. Загружаем файл в OpenAI
+    vector_store= await create_file(file)
 
-@router.post("/process-docx/")
-async def process_docx_file_and_prompt(
-        session: SessionDep,
-        chat_id: int,
-        prompt: str,
-        file: UploadFile = File(...)
-):
-    print(prompt)
-    try:
-        # Проверяем расширение файла
-        if not file.filename.lower().endswith('.docx'):
-            raise HTTPException(status_code=400, detail="Поддерживаются только .docx файлы")
+    response = await client.responses.create(
+        model=settings.CHAT_GPT_MODEL,
+        input=prompt,
+        tools=[{
+            "type": "file_search",
+            "vector_store_ids": [vector_store.id]
+        }]
+    )
 
-        file_content = await process_docx_file(file)
-        prompt = prompt + f"Содержимое файла {file_content}"
-        response = await create_response_gpt(text=prompt, chat_id=chat_id, session=session)
+    await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
+    await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response.output_text)
 
-        await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
-        await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
-
-        return JSONResponse(content={
-            "response": response,
-        })
-    except HTTPException as he:
-        raise he
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
-
+    return {"answer": response.output_text}
