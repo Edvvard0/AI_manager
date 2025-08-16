@@ -6,6 +6,7 @@ import uvicorn
 from aiogram.types import Update
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, Request
+from starlette.middleware.cors import CORSMiddleware
 
 from app.bot.create_bot import bot, dp, stop_bot
 from app.bot.handlers.router import router as bot_router
@@ -34,6 +35,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 # Подключаем статику
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

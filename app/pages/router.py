@@ -4,7 +4,7 @@ from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 from app.chat_gpt.router import token_info
 
-from app.chat_gpt.router import get_chats, get_messages
+from app.chat_gpt.router import get_messages
 
 router = APIRouter(prefix='/pages', tags=['Страницы'])
 templates = Jinja2Templates(directory='app/templates')
