@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
@@ -28,3 +28,13 @@ def new_status_keyboard(task_id: int) -> InlineKeyboardMarkup:
     kb.button(text="⬅ Назад", callback_data=f"back_to_task:{task_id}")
     kb.adjust(1)
     return kb.as_markup()
+
+
+
+def persistent_main_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📈 Мои задачи")]
+        ],
+        resize_keyboard=True
+    )

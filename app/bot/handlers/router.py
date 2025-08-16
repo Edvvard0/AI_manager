@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.bot.create_bot import send_task_admin
 from app.users.dao import UserDAO
 from app.tasks.dao import TaskDAO
-from app.bot.keyboards.kbs import main_keyboard, new_status_keyboard, change_keyboard
+from app.bot.keyboards.kbs import main_keyboard, new_status_keyboard, change_keyboard, persistent_main_keyboard
 from app.database import connection, SessionDep, async_session_maker
 from app.users.models import User
 
@@ -21,17 +21,17 @@ router = Router()
 @connection()
 async def cmd_start(message: Message, session, **kwargs):
     welcome_text = (
-        "Вас приветствует нейробот, помогающий распределять задачи между сотрудниками"
+        "Вас приветствует нейробот, помогающий распределять задачи между сотрудниками \nПервым делом вам надо зарегистрироваться /register"
     )
 
     user_id = message.from_user.id
     user_info = await UserDAO.find_one_or_none(session=session, tg_id=user_id)
 
     if not user_info:
-        await message.answer("Извините, но вы не зарегистрированы в системе")
+        await message.answer("Первым делом вам надо зарегистрироваться /register")
         return
 
-    await message.answer(welcome_text, reply_markup=main_keyboard())
+    await message.answer(welcome_text, reply_markup=persistent_main_keyboard())
 
 
 @router.callback_query(F.data == "my_tasks")
@@ -156,3 +156,28 @@ async def process_department(message: Message, state: FSMContext):
 
     await message.answer("✅ Вы успешно зарегистрированы!")
     await state.clear()
+
+
+@router.message(F.text == "📈 Мои задачи")
+@connection()
+async def my_tasks_handler(message: Message, session, **kwargs):
+    user = await UserDAO.find_one_or_none(session=session, tg_id=message.from_user.id)
+
+    if not user:
+        await message.answer("Вы не зарегистрированы в системе")
+        return
+
+    tasks = await TaskDAO.find_all_by_user_id(session, user.id)
+
+    if not tasks:
+        await message.answer("У вас нет задач.")
+        return
+
+    for task in tasks:
+        text = (
+            f"<b>{task.title}</b>\n"
+            f"{task.description}\n"
+            f"Дедлайн: {task.deadline_date}\n"
+            f"Статус: {task.status}"
+        )
+        await message.answer(text, reply_markup=change_keyboard(task.id))

@@ -2,6 +2,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
+from app.bot.keyboards.kbs import persistent_main_keyboard
 from app.config import settings
 
 from app.database import SessionDep
@@ -43,7 +44,8 @@ async def send_task_user(session: SessionDep, new_task: TaskCreate):
                 f"<b>Дедлайн:</b> {new_task.deadline_date}\n"
                 f"<b>Статус:</b> {new_task.status}"
             ),
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=persistent_main_keyboard()
         )
     except Exception as e:
         print(f"Ошибка при отправке уведомления: {e}")
