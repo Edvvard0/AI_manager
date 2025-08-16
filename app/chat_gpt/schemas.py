@@ -12,3 +12,8 @@ class ChatOut(BaseModel):
 class SMessageAdd(BaseModel):
     chat_id: int
     content: str
+
+
+class STaskAddGPT(BaseModel):
+    title: str
+    description: str

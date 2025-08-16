@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dao.base import BaseDAO
 from app.tasks.models import Task
+from app.tasks.schemas import TaskCreate
 
 
 class TaskDAO(BaseDAO):
@@ -16,3 +17,12 @@ class TaskDAO(BaseDAO):
         query = select(cls.model).where(cls.model.executor_id == user_id)
         result = await session.execute(query)
         return result.scalars().all()
+
+    @classmethod
+    async def create_task(cls, session: AsyncSession, task_data: TaskCreate) -> Task:
+        # создаём объект
+        new_task = Task(**task_data.model_dump())
+        session.add(new_task)
+        await session.commit()
+        await session.refresh(new_task)  # обновляем объект из БД, теперь есть id
+        return new_task

@@ -14,13 +14,15 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 # Создание задачи
 @router.post("/")
 async def create_task(task_data: TaskCreate, session: AsyncSession = Depends(get_session)):
-    await TaskDAO.add(session, **task_data.dict())
+    task = await TaskDAO.create_task(session, task_data)
     await send_task_user(session, task_data)
-    return {"message": "задача успешно создана"}
+    return {"message": "задача успешно создана",
+            "task_id": task.id}
 
 
 @router.post("/upload_file/{task_id}")
 async def upload_file_for_task(session: SessionDep, task_id: int, file: UploadFile = File(...)):
+    print(f"загрузка файла {task_id}")
     task = await TaskDAO.find_one_or_none_by_id(session, task_id)
     file_path = None
     if file and file.filename:

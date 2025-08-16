@@ -21,47 +21,47 @@ from app.users.dao import UserDAO
 client = AsyncOpenAI(api_key=settings.CHAT_GPT_API_KEY)
 
 
-async def format_text(session: SessionDep, text: str):
-    # Получаем данные об исполнителях из базы
-    tasks_db = await session.execute(
-        select(Task).options(selectinload(Task.executor))
-    )
-    tasks_db = tasks_db.scalars().all()
-
-    # Создаем словарь для быстрого доступа к данным исполнителей по executor_id
-    executor_map = {
-        task.executor_id: task.executor for task in tasks_db if task.executor_id
-    }
-
-    # Преобразуем входной текст в JSON
-    text = re.sub(r'}\s*{', '},{', text.strip())
-    json_array_str = f"[{text}]"
-    tasks = json.loads(json_array_str)
-
-    # Карта ключей для Markdown
-    key_map = {
-        "title": "Название",
-        "description": "Описание",
-        "deadline_date": "Дедлайн",
-        "executor_id": "Исполнитель",
-        "status": "Статус"
-    }
-
-    # Форматируем в Markdown
-    md_lines = []
-    for i, task in enumerate(tasks, start=1):
-        md_lines.append(f"### 📝 Задача {i}")
-        for key, value in task.items():
-            if key == "executor_id":
-                executor = executor_map.get(value)
-                executor_str = f"{executor.name if executor else '—'} ({executor.username if executor and executor.username else '—'})"
-                md_lines.append(f"**{key_map.get(key, key)}:** {executor_str}")
-            else:
-                md_lines.append(f"**{key_map.get(key, key)}:** {value}")
-        md_lines.append("")  # Пустая строка между задачами
-
-    markdown_output = "\n".join(md_lines)
-    return markdown_output
+# async def format_text(session: SessionDep, text: str):
+#     # Получаем данные об исполнителях из базы
+#     tasks_db = await session.execute(
+#         select(Task).options(selectinload(Task.executor))
+#     )
+#     tasks_db = tasks_db.scalars().all()
+#
+#     # Создаем словарь для быстрого доступа к данным исполнителей по executor_id
+#     executor_map = {
+#         task.executor_id: task.executor for task in tasks_db if task.executor_id
+#     }
+#
+#     # Преобразуем входной текст в JSON
+#     text = re.sub(r'}\s*{', '},{', text.strip())
+#     json_array_str = f"[{text}]"
+#     tasks = json.loads(json_array_str)
+#
+#     # Карта ключей для Markdown
+#     key_map = {
+#         "title": "Название",
+#         "description": "Описание",
+#         "deadline_date": "Дедлайн",
+#         "executor_id": "Исполнитель",
+#         "status": "Статус"
+#     }
+#
+#     # Форматируем в Markdown
+#     md_lines = []
+#     for i, task in enumerate(tasks, start=1):
+#         md_lines.append(f"### 📝 Задача {i}")
+#         for key, value in task.items():
+#             if key == "executor_id":
+#                 executor = executor_map.get(value)
+#                 executor_str = f"{executor.name if executor else '—'} ({executor.username if executor and executor.username else '—'})"
+#                 md_lines.append(f"**{key_map.get(key, key)}:** {executor_str}")
+#             else:
+#                 md_lines.append(f"**{key_map.get(key, key)}:** {value}")
+#         md_lines.append("")  # Пустая строка между задачами
+#
+#     markdown_output = "\n".join(md_lines)
+#     return markdown_output
 
 
 async def check_keywords(session, text: str, chat_id: int):
@@ -148,17 +148,16 @@ async def create_response_gpt(session: SessionDep, text: str, chat_id: int):
 
             for task in tasks:
                 print(task.title)
+                # await TaskDAO.add(session, **task.model_dump())
+                # await send_task_user(session, task)
 
-                await TaskDAO.add(session, **task.model_dump())
-                await send_task_user(session, task)
-
-            return await format_text(session, response.output_text)
+            return tasks
 
         except Exception as e:
             print(f"[ERROR PARSING TASK] {e}")
             print(f"GPT output was:\n{response}")
 
-            return await format_text(session, response.output_text)
+            return  response.output_text
 
     # print(response.output_text)
     return response.output_text

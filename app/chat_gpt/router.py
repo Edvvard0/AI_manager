@@ -47,7 +47,6 @@ async def get_messages(chat_id: int, session: AsyncSession = Depends(get_session
     ]
 
 
-# Добавить сообщение
 @router.post("/messages/")
 async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_session)):
     print("message")
@@ -61,6 +60,16 @@ async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_
     await MessageDAO.add(session, chat_id=data.chat_id, is_user=False, content=response)
     return {"message": response}
 
+
+@router.post("/messages_with_add_task/{chat_id}")
+async def create_messages_with_add_task(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
+    print("message task")
+    try:
+        tasks = await create_response_gpt(session=session, chat_id=chat_id, text=content)
+    except Exception as e:
+        return f"произошла ошибка {e}"
+
+    return tasks
 
 @router.get("/token_info/")
 async def token_info(session: SessionDep):

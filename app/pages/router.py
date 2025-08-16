@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
-from app.chat_gpt.router import token_info
+from app.chat_gpt.router import token_info, create_messages_with_add_task
 
 from app.chat_gpt.router import get_messages
+from app.users.router import get_worker
 
 router = APIRouter(prefix='/pages', tags=['Страницы'])
 templates = Jinja2Templates(directory='app/templates')
@@ -33,3 +34,17 @@ async def token_info(request: Request, token_info = Depends(token_info)):
         "request": request,
         "token_info": token_info
     })
+
+
+@router.get("/add_tasks/{chat_id}", response_class=HTMLResponse)
+async def add_tasks_page(request: Request,
+                     chat_id: int,
+                     executors = Depends(get_worker),
+                     tasks = Depends(create_messages_with_add_task)):
+    return templates.TemplateResponse("pages/add_tasks.html", {
+        "request": request,
+        "executors": executors,
+        "tasks": tasks,
+        "chat_id": chat_id
+    })
+

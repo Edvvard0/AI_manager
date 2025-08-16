@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <title>Редактирование задач</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #ffffff;
+            color: #000000;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+        }
+        .task-container {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .task-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .input-field,
+        .select-field,
+        .date-field {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        /* --- кастомная загрузка файла --- */
+        .file-upload input[type="file"] {
+            display: none; /* скрываем стандартный инпут */
+        }
+        .file-label {
+            display: inline-block;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #f8f9fa;
+        }
+        .file-label:hover {
+            background-color: #e9ecef;
+        }
+        .file-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            margin-top: 8px;
+            background-color: #f1f1f1;
+            border: 1px solid #ccc;
+            border-radius: 16px;
+            font-size: 14px;
+        }
+        .file-chip span {
+            margin-right: 8px;
+        }
+        .file-chip .remove-file {
+            font-size: 16px;
+            color: #333;
+            cursor: pointer;
+        }
+        .file-chip .remove-file:hover {
+            color: #ff0000;
+        }
+        /* --- кнопка сохранения --- */
+        .save-button {
+            display: block;
+            width: 200px;
+            padding: 10px;
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #d3d3d3;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .save-button:hover {
+            background-color: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    {% for task in tasks %}
+        {% set uid = task.id or loop.index %}
+        <div class="task-container" data-task-id="{{ task.id }}" data-uid="{{ uid }}">
+            <div class="task-title">Задача №{{ loop.index }}</div>
+            <input type="text" class="input-field" value="{{ task.title }}" id="title-{{ uid }}">
+            <textarea class="input-field" rows="3" id="description-{{ uid }}">{{ task.description }}</textarea>
+            <select class="select-field" id="executor-{{ uid }}">
+                <option value="">Выберите исполнителя</option>
+                {% for executor in executors %}
+                    <option value="{{ executor.id }}" {% if executor.id == task.executor_id %}selected{% endif %}>
+                        {{ executor.name }} ({{ executor.department }})
+                    </option>
+                {% endfor %}
+            </select>
+            <input type="date" class="date-field" id="deadline-{{ uid }}" value="{{ task.deadline_date }}">
+
+            <div class="file-upload">
+                <label class="file-label" for="file-{{ uid }}">Выберите файл</label>
+                <input type="file" id="file-{{ uid }}" onchange="showFileName('{{ uid }}')">
+                <div id="uploaded-{{ uid }}" class="file-chip" style="display:none;">
+                    <span id="filename-{{ uid }}"></span>
+                    <span class="remove-file" onclick="clearFile('{{ uid }}')">×</span>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+    <button class="save-button" onclick="saveAllTasks()">Сохранить</button>
+
+    <script>
+        function showFileName(uid) {
+            const fileInput = document.getElementById(`file-${uid}`);
+            const uploadedDiv = document.getElementById(`uploaded-${uid}`);
+            const filenameSpan = document.getElementById(`filename-${uid}`);
+
+            if (fileInput.files.length > 0) {
+                filenameSpan.textContent = fileInput.files[0].name;
+                uploadedDiv.style.display = "inline-flex";
+            }
+        }
+
+        function clearFile(uid) {
+            const fileInput = document.getElementById(`file-${uid}`);
+            const uploadedDiv = document.getElementById(`uploaded-${uid}`);
+            const filenameSpan = document.getElementById(`filename-${uid}`);
+
+            fileInput.value = "";
+            filenameSpan.textContent = "";
+            uploadedDiv.style.display = "none";
+        }
+
+        async function saveAllTasks() {
+            const tasks = document.querySelectorAll('.task-container');
+            for (const taskDiv of tasks) {
+                const taskId = taskDiv.dataset.taskId;   // может быть null/пустым
+                const uid = taskDiv.dataset.uid;         // всегда уникален (id или index)
+
+                const title = document.getElementById(`title-${uid}`).value;
+                const description = document.getElementById(`description-${uid}`).value;
+                const executorId = document.getElementById(`executor-${uid}`).value || null;
+                const deadline = document.getElementById(`deadline-${uid}`).value;
+                const fileInput = document.getElementById(`file-${uid}`);
+
+                const taskData = {
+                    title,
+                    description,
+                    deadline_date: deadline,
+                    executor_id: executorId,
+                    status: "Начал"
+                };
+
+                try {
+                    let response;
+                    if (taskId) {
+                        // обновляем
+                        response = await fetch(`/tasks/${taskId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(taskData)
+                        });
+                    } else {
+                        // создаём
+                        response = await fetch('/tasks/', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(taskData)
+                        });
+                    }
+
+                    const result = await response.json();
+                    if (!response.ok) {
+                        alert(`Ошибка при сохранении задачи №${taskId || uid}: ${result.message || 'Неизвестная ошибка'}`);
+                        continue;
+                    }
+
+                    const newTaskId = result.task_id || taskId;
+                    console.log(`Задача ${newTaskId} сохранена`, result);
+
+                    // загружаем файл
+                    if (fileInput.files.length > 0) {
+                        const formData = new FormData();
+                        formData.append('file', fileInput.files[0]);
+                        const fileResponse = await fetch(`/tasks/upload_file/${newTaskId}`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const fileResult = await fileResponse.json();
+                        if (fileResponse.ok) {
+                            console.log(`Файл загружен для задачи ${newTaskId}:`, fileResult);
+                        } else {
+                            alert(`Ошибка загрузки файла для задачи №${newTaskId}`);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Ошибка сохранения задачи:', error);
+                    alert(`Ошибка при сохранении задачи №${taskId || uid}: ${error.message}`);
+                }
+            }
+
+            alert('Все задачи успешно сохранены');
+        }
+    </script>
+</body>
+</html>
