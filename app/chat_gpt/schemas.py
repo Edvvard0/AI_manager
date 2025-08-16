@@ -6,3 +6,7 @@ class ChatOut(BaseModel):
     title: str
     created_at: str
 
+
+class SMessageAdd(BaseModel):
+    chat_id: int
+    content: str

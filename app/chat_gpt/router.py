@@ -6,7 +6,7 @@ from typing import List
 
 from starlette.responses import JSONResponse
 
-from app.chat_gpt.schemas import ChatOut
+from app.chat_gpt.schemas import ChatOut, SMessageAdd
 from app.chat_gpt.utils.utils import create_response_gpt
 from app.chat_gpt.utils.utils_docx import process_docx_file
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
@@ -49,7 +49,6 @@ async def get_chats(tg_id: int, session: AsyncSession = Depends(get_session)):
         )
 
 
-# Получить все сообщения в чате
 @router.get("/messages/{chat_id}", response_model=List[dict])
 async def get_messages(chat_id: int, session: AsyncSession = Depends(get_session)):
     messages = await MessageDAO.get_messages_by_chat(session, chat_id)
@@ -66,16 +65,16 @@ async def get_messages(chat_id: int, session: AsyncSession = Depends(get_session
 
 # Добавить сообщение
 @router.post("/messages/")
-async def create_message(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
+async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_session)):
     print("message")
     try:
-        response = await create_response_gpt(session=session, chat_id=chat_id, text=content)
+        response = await create_response_gpt(session=session, chat_id=data.chat_id, text=data.content)
     except Exception as e:
         return f"произошла ошибка {e}"
 
-    await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=content)
+    await MessageDAO.add(session, chat_id=data.chat_id, is_user=True, content=data.content)
     # print(response.text)
-    await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
+    await MessageDAO.add(session, chat_id=data.chat_id, is_user=False, content=response)
     return {"message": response}
 
 
