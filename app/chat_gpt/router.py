@@ -6,6 +6,7 @@ from typing import List
 
 from starlette.responses import JSONResponse
 
+from app.chat_gpt.schemas import ChatOut
 from app.chat_gpt.utils.utils import create_response_gpt
 from app.chat_gpt.utils.utils_docx import process_docx_file
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
@@ -24,11 +25,28 @@ async def create_chat(tg_id: int, title: str, session: AsyncSession = Depends(ge
     return {"message": "Чат создан", "chat_id": new_chat.id}
 
 
-# Получить список чатов по tg_id
-@router.get("/chats/{tg_id}", response_model=List[dict])
+@router.get("/chats/{tg_id}")
 async def get_chats(tg_id: int, session: AsyncSession = Depends(get_session)):
-    chats = await ChatDAO.get_chats_by_tg_id(session, tg_id)
-    return [{"id": chat.id, "title": chat.title, "created_at": chat.created_at} for chat in chats]
+    try:
+        chats = await ChatDAO.get_chats_by_tg_id(session, tg_id)
+        if not chats:
+            return JSONResponse(content=[], headers={"Content-Type": "application/json"})
+
+        chat_data = [
+            {
+                "id": chat.id,
+                "title": chat.title,
+                "created_at": chat.created_at.isoformat() if chat.created_at else None
+            }
+            for chat in chats
+        ]
+        return JSONResponse(content=chat_data, headers={"Content-Type": "application/json"})
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Ошибка при получении чатов: {str(e)}"},
+            headers={"Content-Type": "application/json"}
+        )
 
 
 # Получить все сообщения в чате
@@ -49,6 +67,7 @@ async def get_messages(chat_id: int, session: AsyncSession = Depends(get_session
 # Добавить сообщение
 @router.post("/messages/")
 async def create_message(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
+    print("message")
     try:
         response = await create_response_gpt(session=session, chat_id=chat_id, text=content)
     except Exception as e:
@@ -71,9 +90,10 @@ async def token_info(session: SessionDep):
 async def process_docx_file_and_prompt(
         session: SessionDep,
         chat_id: int,
-        prompt: str = Form(...),
+        prompt: str,
         file: UploadFile = File(...)
 ):
+    print(prompt)
     try:
         # Проверяем расширение файла
         if not file.filename.lower().endswith('.docx'):
