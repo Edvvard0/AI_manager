@@ -18,5 +18,7 @@ class Task(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     status: Mapped[str]
+    comment: Mapped[str] = mapped_column(nullable=True)
+    file_path: Mapped[str] = mapped_column(nullable=True)
 
     executor: Mapped["User"] = relationship(back_populates="tasks")

@@ -11,6 +11,8 @@ class TaskCreate(BaseModel):
     deadline_date: date
     executor_id: Optional[int] = None
     status: str = Field(default="Начал")
+    comment: str
+    file_path: str
 
 
 class TaskUpdate(BaseModel):
@@ -28,5 +30,7 @@ class TaskOut(BaseModel):
     deadline_date: date
     executor_id: Optional[int]
     status: str
+    comment: str
+    file_path: str
 
     model_config = ConfigDict(from_attributes=True)

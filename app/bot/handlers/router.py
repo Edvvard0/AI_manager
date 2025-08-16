@@ -7,7 +7,8 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message, CallbackQuery
 from sqlalchemy import select
 
-from app.bot.create_bot import send_task_admin
+from app.bot.create_bot import send_task_admin, bot
+from app.bot.handlers.send_file import send_file
 from app.users.dao import UserDAO
 from app.tasks.dao import TaskDAO
 from app.bot.keyboards.kbs import main_keyboard, new_status_keyboard, change_keyboard, persistent_main_keyboard
@@ -178,6 +179,45 @@ async def my_tasks_handler(message: Message, session, **kwargs):
             f"<b>{task.title}</b>\n"
             f"{task.description}\n"
             f"Дедлайн: {task.deadline_date}\n"
-            f"Статус: {task.status}"
+            f"Статус: {task.status}\n"
+            f"Комментарий: {task.comment}"
         )
         await message.answer(text, reply_markup=change_keyboard(task.id))
+        if task.file_path:
+            await send_file(
+                chat_id=message.chat.id,
+                file_path=f"data_files/{task.file_path}",
+                caption="Файл к проекту"
+            )
+
+
+class CommentState(StatesGroup):
+    waiting_for_text = State()
+
+
+@router.callback_query(F.data.startswith("add_comment:"))
+async def add_comment_start(call: CallbackQuery, state: FSMContext):
+    task_id = int(call.data.split(":")[1])
+    await state.update_data(task_id=task_id)
+    await state.set_state(CommentState.waiting_for_text)
+    await call.message.answer("✏️ Введите комментарий к задаче (одним сообщением):")
+
+
+@router.message(CommentState.waiting_for_text)
+@connection()
+async def add_comment_save(message: Message, session, state: FSMContext, **kwargs):
+    data = await state.get_data()
+    task_id = data.get("task_id")
+
+    if not task_id:
+        await message.answer("❌ Не удалось определить задачу. Попробуйте ещё раз.")
+        await state.clear()
+        return
+
+    updated = await TaskDAO.update(session, {"id": int(task_id)}, comment=message.text)
+    if updated:
+        await message.answer("✅ Комментарий сохранён.")
+    else:
+        await message.answer("❌ Не удалось сохранить комментарий.")
+
+    await state.clear()
