@@ -33,9 +33,8 @@
             border-radius: 4px;
             box-sizing: border-box;
         }
-        /* --- кастомная загрузка файла --- */
         .file-upload input[type="file"] {
-            display: none; /* скрываем стандартный инпут */
+            display: none;
         }
         .file-label {
             display: inline-block;
@@ -69,7 +68,6 @@
         .file-chip .remove-file:hover {
             color: #ff0000;
         }
-        /* --- кнопка сохранения --- */
         .save-button {
             display: block;
             width: 200px;
@@ -117,6 +115,8 @@
     <button class="save-button" onclick="saveAllTasks()">Сохранить</button>
 
     <script>
+        const chatId = "{{ chat_id }}";  // <-- chat_id передаётся из бэкенда
+
         function showFileName(uid) {
             const fileInput = document.getElementById(`file-${uid}`);
             const uploadedDiv = document.getElementById(`uploaded-${uid}`);
@@ -141,8 +141,8 @@
         async function saveAllTasks() {
             const tasks = document.querySelectorAll('.task-container');
             for (const taskDiv of tasks) {
-                const taskId = taskDiv.dataset.taskId;   // может быть null/пустым
-                const uid = taskDiv.dataset.uid;         // всегда уникален (id или index)
+                const taskId = taskDiv.dataset.taskId;
+                const uid = taskDiv.dataset.uid;
 
                 const title = document.getElementById(`title-${uid}`).value;
                 const description = document.getElementById(`description-${uid}`).value;
@@ -161,14 +161,12 @@
                 try {
                     let response;
                     if (taskId) {
-                        // обновляем
                         response = await fetch(`/tasks/${taskId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(taskData)
                         });
                     } else {
-                        // создаём
                         response = await fetch('/tasks/', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -185,7 +183,6 @@
                     const newTaskId = result.task_id || taskId;
                     console.log(`Задача ${newTaskId} сохранена`, result);
 
-                    // загружаем файл
                     if (fileInput.files.length > 0) {
                         const formData = new FormData();
                         formData.append('file', fileInput.files[0]);
@@ -207,6 +204,7 @@
             }
 
             alert('Все задачи успешно сохранены');
+            window.location.href = `/pages/current_chat/${chatId}`; // <-- редирект после сохранения
         }
     </script>
 </body>
