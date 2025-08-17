@@ -108,6 +108,7 @@
             text-align: center;
             margin-top: 20px;
             color: #555;
+            display: none; /* скрыта по умолчанию */
         }
     </style>
     {% block extra_head %}{% endblock %}
@@ -115,7 +116,7 @@
 <body>
 {% block content %}
     <div class="chat-container" id="chat-container">
-        <div class="loading">Формирование задач…</div>
+        <div class="loading" id="task-loading">Формирование задач…</div>
         {% for msg in messages %}
             <div class="message {% if msg.is_user %}user-message{% else %}bot-message{% endif %}">
                 {% if msg.file_name %}
@@ -143,12 +144,11 @@
     const fileInput = document.getElementById("file-input");
     const fileButton = document.getElementById("file-button");
     const filePreviewContainer = document.getElementById("file-preview-container");
+    const taskLoading = document.getElementById("task-loading");
     let selectedFile = null;
 
-    // Открыть диалог выбора файла
     fileButton.addEventListener("click", () => fileInput.click());
 
-    // При выборе файла показать превью
     fileInput.addEventListener("change", () => {
         if (fileInput.files.length > 0) {
             const file = fileInput.files[0];
@@ -194,14 +194,14 @@
         if (!message && !selectedFile) return;
         input.value = "";
 
-        // Если команда "РАСПРЕДЕЛИ ЗАДАЧИ" → переброс на add_tasks
         if (message.toUpperCase().startsWith("РАСПРЕДЕЛИ ЗАДАЧИ")) {
+            taskLoading.style.display = "block"; // показываем надпись
             const url = `/pages/add_tasks/${chatId}?content=${encodeURIComponent(message)}`;
             window.location.href = url;
             return;
         }
 
-        // Обычная логика
+        taskLoading.style.display = "none"; // скрываем надпись для всех остальных сообщений
         addMessage(message || "[Файл отправлен]", true, selectedFile?.name);
         const typingDiv = addTypingIndicator();
 

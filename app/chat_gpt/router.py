@@ -21,6 +21,7 @@ router = APIRouter(prefix="/chat_gpt", tags=["ChatGPT"])
 # Создать новый чат по tg_id
 @router.post("/chats/")
 async def create_chat(tg_id: int, title: str, session: AsyncSession = Depends(get_session)):
+    print("create chat")
     new_chat = await ChatDAO.create_chat_by_tg_id(session, tg_id, title)
     if not new_chat:
         raise HTTPException(status_code=404, detail="Пользователь с таким tg_id не найден")

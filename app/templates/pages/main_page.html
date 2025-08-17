@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    {% include 'base.html' %}
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #ffffff;
+            color: #000000;
+        }
+
+        .main-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            color: #000000;
+            font-weight: 500; /* менее жирный */
+            text-align: center;
+            padding: 0 16px;
+        }
+
+        .typing-indicator {
+            display: none;
+            font-size: 16px;
+            color: #555;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .typing-indicator span {
+            display: inline-block;
+            animation: blink 1.4s infinite both;
+        }
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes blink {
+            0% { opacity: 0.2; }
+            20% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+
+        .input-wrapper {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #ffffff;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            padding: 10px 20px;
+        }
+
+        .file-preview-container {
+            margin-bottom: 8px;
+        }
+
+        .file-preview {
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #333;
+            background-color: #f1f1f1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            margin-right: 6px;
+            max-width: 250px;
+        }
+
+        .file-remove {
+            margin-left: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #666;
+        }
+
+        .file-remove:hover {
+            color: #000;
+        }
+
+        .input-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #message-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .round-button {
+            width: 40px;
+            height: 40px;
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #d3d3d3;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .round-button:hover {
+            background-color: #e9ecef;
+        }
+
+        #file-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+{% block content %}
+    <div class="main-container">
+        <div>
+            Чем я могу помочь?
+            <div class="typing-indicator" id="typing-indicator">
+                Печатает<span>.</span><span>.</span><span>.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-wrapper">
+        <div class="file-preview-container" id="file-preview-container"></div>
+        <div class="input-container">
+            <input type="file" id="file-input" accept=".pdf,.txt,.docx,.md,.csv">
+            <button id="file-button" class="round-button">+</button>
+            <input type="text" id="message-input" placeholder="Введите сообщение...">
+            <button id="send-button" class="round-button">↑</button>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    const fileInput = document.getElementById("file-input");
+    const fileButton = document.getElementById("file-button");
+    const filePreviewContainer = document.getElementById("file-preview-container");
+    const sendButton = document.getElementById("send-button");
+    const messageInput = document.getElementById("message-input");
+    const typingIndicator = document.getElementById("typing-indicator");
+
+    let selectedFile = null;
+
+    function getUserId() {
+        const fromStorage = localStorage.getItem("userId");
+        if (fromStorage) return fromStorage;
+        const tg = window.Telegram && window.Telegram.WebApp;
+        const fromTg = tg?.initDataUnsafe?.user?.id;
+        if (fromTg) {
+            localStorage.setItem("userId", fromTg);
+            return String(fromTg);
+        }
+        return null;
+    }
+
+    fileButton.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", () => {
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            selectedFile = file;
+            renderFilePreview(file.name);
+        }
+    });
+
+    function renderFilePreview(fileName) {
+        filePreviewContainer.innerHTML = "";
+        const preview = document.createElement("div");
+        preview.className = "file-preview";
+        preview.innerHTML = `<span>${fileName}</span><span class="file-remove">×</span>`;
+        preview.querySelector(".file-remove").addEventListener("click", () => {
+            selectedFile = null;
+            fileInput.value = "";
+            preview.remove();
+        });
+        filePreviewContainer.appendChild(preview);
+    }
+
+    sendButton.addEventListener("click", handleSend);
+    messageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            handleSend();
+        }
+    });
+
+    async function handleSend() {
+        const message = messageInput.value.trim();
+        if (!message && !selectedFile) return;
+        messageInput.value = "";
+
+        const userId = getUserId();
+        if (!userId) {
+            alert("Ошибка: не найден userId. Перезапустите Telegram.");
+            return;
+        }
+
+        try {
+            typingIndicator.style.display = "block"; // показать "печатает..."
+
+            const createUrl = `/chat_gpt/chats/?tg_id=${encodeURIComponent(userId)}&title=${encodeURIComponent("Новый чат")}`;
+            const chatResp = await fetch(createUrl, { method: "POST" });
+            const chatData = await chatResp.json();
+            const chatId = chatData.chat_id;
+
+            if (message && message.toUpperCase().startsWith("РАСПРЕДЕЛИ ЗАДАЧИ")) {
+                window.location.href = `/pages/add_tasks/${chatId}?content=${encodeURIComponent(message)}`;
+                return;
+            }
+
+            if (selectedFile) {
+                const formData = new FormData();
+                formData.append("prompt", message || "");
+                formData.append("file", selectedFile);
+                await fetch(`/chat_gpt/messages/?chat_id=${chatId}`, { method: "POST", body: formData });
+            } else if (message) {
+                await fetch(`/chat_gpt/messages/`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ chat_id: chatId, content: message })
+                });
+            }
+
+            window.location.href = `/pages/current_chat/${chatId}`;
+        } catch (err) {
+            console.error(err);
+            alert("Ошибка при создании чата.");
+        } finally {
+            fileInput.value = "";
+            selectedFile = null;
+            filePreviewContainer.innerHTML = "";
+        }
+    }
+</script>
+{% endblock %}
+</body>
+</html>

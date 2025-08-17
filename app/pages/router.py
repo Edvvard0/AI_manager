@@ -13,9 +13,8 @@ templates = Jinja2Templates(directory='app/templates')
 
 @router.get("/", response_class=HTMLResponse)
 async def main_page(request: Request):
-    return templates.TemplateResponse("base.html", {
+    return templates.TemplateResponse("pages/main_page.html", {
         "request": request,
-        # "chats": chats
     })
 
 
