@@ -102,12 +102,20 @@
         #file-input {
             display: none;
         }
+
+        .loading {
+            font-size: 18px;
+            text-align: center;
+            margin-top: 20px;
+            color: #555;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
 {% block content %}
     <div class="chat-container" id="chat-container">
+        <div class="loading">Формирование задач…</div>
         {% for msg in messages %}
             <div class="message {% if msg.is_user %}user-message{% else %}bot-message{% endif %}">
                 {% if msg.file_name %}
@@ -164,7 +172,7 @@
     });
 
     const renderFilePreview = (fileName) => {
-        filePreviewContainer.innerHTML = ""; // очищаем старые превью
+        filePreviewContainer.innerHTML = "";
         const preview = document.createElement("div");
         preview.className = "file-preview";
         preview.innerHTML = `
@@ -184,10 +192,16 @@
         const message = input.value.trim();
 
         if (!message && !selectedFile) return;
-
-        // очищаем поле сразу после клика (как в chatgpt.com)
         input.value = "";
 
+        // Если команда "РАСПРЕДЕЛИ ЗАДАЧИ" → переброс на add_tasks
+        if (message.toUpperCase().startsWith("РАСПРЕДЕЛИ ЗАДАЧИ")) {
+            const url = `/pages/add_tasks/${chatId}?content=${encodeURIComponent(message)}`;
+            window.location.href = url;
+            return;
+        }
+
+        // Обычная логика
         addMessage(message || "[Файл отправлен]", true, selectedFile?.name);
         const typingDiv = addTypingIndicator();
 
@@ -198,12 +212,12 @@
                 formData.append("prompt", message || "");
                 formData.append("file", selectedFile);
 
-                response = await fetch(`/chat_gpt/ask?chat_id=${chatId}`, {
+                response = await fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {
                     method: "POST",
                     body: formData
                 });
             } else {
-                response = await fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {
+                response = await fetch(`/chat_gpt/messages/`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ chat_id: chatId, content: message })
@@ -216,7 +230,6 @@
             removeTypingIndicator(typingDiv);
             addMessage(data.message || data.answer, false);
 
-            // сбрасываем файл
             fileInput.value = "";
             selectedFile = null;
             filePreviewContainer.innerHTML = "";
