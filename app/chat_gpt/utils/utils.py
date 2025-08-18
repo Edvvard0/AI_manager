@@ -69,6 +69,8 @@ async def check_keywords(session, text: str, chat_id: int):
         return "distribute"
     elif "СТАТУС ПО ЗАДАЧАМ" in text:
         return "status"
+    elif "СТАТУС ПО ВСЕМ ЗАДАЧАМ" in text:
+        return "status_all"
     else:
         return None
 
@@ -85,11 +87,18 @@ async def get_worker_info(session: SessionDep):
     return f"Список сотрудников:\n{summary}"
 
 
-async def get_tasks_info(session: SessionDep):
-    tasks = await session.execute(
-        select(Task).options(joinedload(Task.executor))
-    )
-    tasks = tasks.scalars().all()
+async def get_tasks_info(session: SessionDep, chat_id: int = 0):
+    if chat_id:
+        tasks = await session.execute(
+            select(Task).options(joinedload(Task.executor))
+            .where(Task.chat_id == chat_id)
+        )
+        tasks = tasks.scalars().all()
+    else:
+        tasks = await session.execute(
+            select(Task).options(joinedload(Task.executor))
+        )
+        tasks = tasks.scalars().all()
 
     summary = "\n".join(
         f"{t.title} — {t.status} | \n"
@@ -118,6 +127,14 @@ async def create_response_gpt(session: SessionDep, text: str, chat_id: int):
         gpt_input.append({"role": "user", "content": worker_info})
 
     elif action == "status":
+        task_info = await get_tasks_info(session, chat_id)
+        worker_info = await get_worker_info(session)
+
+        gpt_input.append({"role": "user", "content": task_info})
+        gpt_input.append({"role": "user", "content": worker_info})
+
+
+    elif action == "status_all":
         task_info = await get_tasks_info(session)
         worker_info = await get_worker_info(session)
 
