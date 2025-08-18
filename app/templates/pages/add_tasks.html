@@ -158,6 +158,11 @@
                     status: "Начал"
                 };
 
+                // ✅ добавляем chat_id только при создании новой задачи
+                if (!taskId) {
+                    taskData.chat_id = chatId;
+                }
+
                 try {
                     let response;
                     if (taskId) {
