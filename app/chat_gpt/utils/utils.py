@@ -79,7 +79,7 @@ async def get_last_messages(session: SessionDep, chat_id: int):
 
 
 async def get_worker_info(session: SessionDep):
-    workers = await UserDAO.find_all(session)
+    workers = await UserDAO.find_all(session, **{"is_admin": False})
     summary = "\n".join(f"Имя {w.name}, Отдел {w.department},  Username: {w.username}" for w in workers)
     # print(summary)
     return f"Список сотрудников:\n{summary}"
@@ -159,7 +159,7 @@ async def create_response_gpt(session: SessionDep, text: str, chat_id: int):
 
             return  response.output_text
 
-    # print(response.output_text)
+    print(response.output_text)
     return response.output_text
     # return "Сообщение от нейросети"
 
