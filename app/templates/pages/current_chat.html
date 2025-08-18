@@ -10,15 +10,17 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            gap: 1px;
         }
 
         .message {
-            margin: -5px 0; /* уменьшили расстояние между сообщениями */
-            padding: 0;
+            margin: 6px 0;
+            margin-top: 1px;
+            padding: 6px 10px;
             max-width: 90%;
             word-wrap: break-word;
             white-space: pre-wrap;
-            line-height: 1.4; /* чуть плотнее строки */
+            line-height: 1.4;
             align-self: flex-start;
             text-align: left;
         }
@@ -29,7 +31,8 @@
         }
 
         .message-content p {
-            margin: 2px 0; /* уменьшили расстояния между абзацами */
+            margin: 0px 0;
+            line-height: 1;
         }
 
         .input-wrapper {
@@ -162,7 +165,6 @@
     const chatContainer = document.getElementById("chat-container");
     let selectedFile = null;
 
-    // Автопрокрутка в самый низ при загрузке страницы
     function scrollToBottom() {
         if (chatContainer) {
             chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -231,12 +233,12 @@
                 formData.append("prompt", message || "");
                 formData.append("file", selectedFile);
 
-                response = await fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {
+                response = await fetch(`/chat_gpt/ask?chat_id=${chatId}`, {   // 👈 для файла
                     method: "POST",
                     body: formData
                 });
             } else {
-                response = await fetch(`/chat_gpt/messages/`, {
+                response = await fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {  // 👈 для текста
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ chat_id: chatId, content: message })
@@ -274,7 +276,6 @@
         if (text) {
             const contentDiv = document.createElement("div");
             contentDiv.classList.add("message-content");
-            // удаляем лишние пустые строки подряд
             const cleanedText = text.replace(/(\n\s*){2,}/g, "\n");
             contentDiv.innerHTML = marked.parse(cleanedText);
             messageDiv.appendChild(contentDiv);

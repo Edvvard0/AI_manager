@@ -10,6 +10,9 @@ class TaskCreate(BaseModel):
     description: str
     deadline_date: date
     executor_id: Optional[int] = None
+
+    chat_id: Optional[int] = None
+
     status: str = Field(default="Начал")
 
 
@@ -18,6 +21,8 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     deadline_date: Optional[date] = None
     executor_id: Optional[int] = None
+    chat_id: Optional[int] = None
+
     status: Optional[str] = None
 
 
@@ -27,6 +32,9 @@ class TaskOut(BaseModel):
     description: str
     deadline_date: date
     executor_id: Optional[int]
+
+    chat_id: Optional[int] = None
+
     status: str
     comment: Optional[str] = None
     file_path: Optional[str] = None

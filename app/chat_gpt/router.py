@@ -87,6 +87,7 @@ async def token_info(session: SessionDep):
 @router.post("/ask")
 async def ask_gpt(session: SessionDep, chat_id: int, prompt: str = Form(...), file: UploadFile = File(...)):
     # 1. Загружаем файл в OpenAI
+    print("file")
     vector_store= await create_file(file)
 
     response = await client.responses.create(

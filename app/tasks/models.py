@@ -17,8 +17,14 @@ class Task(Base):
     executor_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+
+    chat_id: Mapped[int] = mapped_column(
+        ForeignKey("chats.id", ondelete="SET NULL"), nullable=True
+    )
+
     status: Mapped[str]
     comment: Mapped[str] = mapped_column(nullable=True)
     file_path: Mapped[str] = mapped_column(nullable=True)
 
     executor: Mapped["User"] = relationship(back_populates="tasks")
+    chats: Mapped["Chat"] = relationship(back_populates="tasks")

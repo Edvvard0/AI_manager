@@ -14,6 +14,7 @@ class Chat(Base):
 
     user: Mapped["User"] = relationship(back_populates="chats")
     messages: Mapped[list["Message"]] = relationship(back_populates="chat", cascade="all, delete-orphan")
+    tasks: Mapped["Task"] = relationship(back_populates="chats")
 
 
 class Message(Base):
