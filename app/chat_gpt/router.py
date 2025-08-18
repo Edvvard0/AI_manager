@@ -18,6 +18,12 @@ from app.chat_gpt.dao import ChatDAO, MessageDAO
 router = APIRouter(prefix="/chat_gpt", tags=["ChatGPT"])
 
 
+@router.get("/chats/all")
+async def get_all_chats(session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
+    chats = await ChatDAO.find_all(session)
+    return chats
+
+
 # Создать новый чат по tg_id
 @router.post("/chats/")
 async def create_chat(tg_id: int, title: str, session: AsyncSession = Depends(get_session)):

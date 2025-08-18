@@ -36,6 +36,16 @@ class ChatDAO(BaseDAO):
         await session.refresh(new_chat)
         return new_chat
 
+    @classmethod
+    async def find_all(cls, session: AsyncSession):
+        query = (
+            select(Chat)
+            .join(User, Chat.user_id == User.id)
+            .order_by(desc(Chat.created_at))
+        )
+        result = await session.execute(query)
+        return result.scalars().all()
+
 
 class MessageDAO(BaseDAO):
     model = Message
