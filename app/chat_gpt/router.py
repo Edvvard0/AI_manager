@@ -76,10 +76,10 @@ async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_
     except Exception as e:
         return f"произошла ошибка {e}"
 
-    await MessageDAO.add(session, chat_id=data.chat_id, is_user=True, content=data.content)
+    await MessageDAO.add(session, chat_id=data.chat_id, is_user=True, content=data.content.strip())
     # print(response.text)
-    await MessageDAO.add(session, chat_id=data.chat_id, is_user=False, content=response)
-    return {"message": response}
+    await MessageDAO.add(session, chat_id=data.chat_id, is_user=False, content=response.strip())
+    return {"message": response.strip()}
 
 
 @router.post("/messages_with_add_task/{chat_id}")

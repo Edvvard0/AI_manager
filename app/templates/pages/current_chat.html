@@ -19,7 +19,8 @@
             padding: 6px 10px;
             max-width: 90%;
             word-wrap: break-word;
-            white-space: pre-wrap;
+            /* Важно: не наследуем pre-wrap, чтобы не появлялись пустые строки по краям */
+            white-space: normal;
             line-height: 1.4;
             align-self: flex-start;
             text-align: left;
@@ -30,9 +31,34 @@
             text-align: left;
         }
 
+        .message-content {
+            /* Управляем переносами через HTML (<p>, <br>), не через наследование */
+            white-space: normal;
+            line-height: 1.4;
+        }
+
         .message-content p {
-            margin: 0px 0;
-            line-height: 1;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        /* Снимаем внешние отступы у первого и последнего блоков внутри сообщения,
+           чтобы не было «пустых строк» над и под сообщением */
+        .message-content > :first-child {
+            margin-top: 0 !important;
+        }
+        .message-content > :last-child {
+            margin-bottom: 0 !important;
+        }
+
+        /* На всякий случай: у всех непосредственных детей нет вертикальных внешних отступов,
+           а между соседями — мягкий внутренний ритм */
+        .message-content > * {
+            margin-top: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        .message-content > * + * {
+            margin-top: 0.25em !important;
         }
 
         .input-wrapper {
@@ -138,7 +164,8 @@
                 {% if msg.file_name %}
                     <div class="file-preview">{{ msg.file_name }}</div>
                 {% endif %}
-                <div class="message-content">{{ msg.content | safe }}</div>
+                <!-- Важно: подрезаем серверный контент -->
+                <div class="message-content">{{ msg.content | trim | safe }}</div>
             </div>
         {% endfor %}
     </div>
@@ -156,6 +183,9 @@
 
 {% block extra_scripts %}
 <script>
+    // Настройки markdown: одиночные \n -> <br>, меньше неожиданных <p>
+    marked.setOptions({ breaks: true });
+
     const chatId = {{ chat_id }};
     const fileInput = document.getElementById("file-input");
     const fileButton = document.getElementById("file-button");
@@ -166,11 +196,13 @@
     let selectedFile = null;
 
     function scrollToBottom() {
-        if (chatContainer) {
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
+        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
     }
-    window.addEventListener('load', scrollToBottom);
+    window.addEventListener('load', () => {
+        // Подрезаем возможные пробелы/лишние <br> у уже отрисованных сообщений (с сервера)
+        document.querySelectorAll('.message-content').forEach(normalizeMessageNode);
+        scrollToBottom();
+    });
 
     fileButton.addEventListener("click", () => fileInput.click());
 
@@ -210,7 +242,7 @@
     };
 
     document.getElementById("send-button").addEventListener("click", async () => {
-        const message = messageInput.value.trim();
+        const message = messageInput.value.replace(/^\s+|\s+$/g, ''); // trim
         if (!message && !selectedFile) return;
         messageInput.value = "";
         messageInput.style.height = "40px";
@@ -233,12 +265,12 @@
                 formData.append("prompt", message || "");
                 formData.append("file", selectedFile);
 
-                response = await fetch(`/chat_gpt/ask?chat_id=${chatId}`, {   // 👈 для файла
+                response = await fetch(`/chat_gpt/ask?chat_id=${chatId}`, {
                     method: "POST",
                     body: formData
                 });
             } else {
-                response = await fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {  // 👈 для текста
+                response = await fetch(`/chat_gpt/messages/?chat_id=${chatId}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ chat_id: chatId, content: message })
@@ -261,8 +293,9 @@
         }
     });
 
-    const addMessage = (text, isUser, fileName=null) => {
+    function addMessage(text, isUser, fileName=null) {
         if (!text && !fileName) return;
+
         const messageDiv = document.createElement("div");
         messageDiv.classList.add("message", isUser ? "user-message" : "bot-message");
 
@@ -276,23 +309,35 @@
         if (text) {
             const contentDiv = document.createElement("div");
             contentDiv.classList.add("message-content");
-            const cleanedText = text.replace(/(\n\s*){2,}/g, "\n");
-            contentDiv.innerHTML = marked.parse(cleanedText);
+
+            // 1) убираем пробелы по краям
+            let cleanedText = text.replace(/^\s+|\s+$/g, '');
+
+            // 2) схлопываем длинные вертикальные «простыни»
+            cleanedText = cleanedText.replace(/\n{3,}/g, '\n\n');
+
+            // 3) парсим в HTML и ещё раз подрезаем обрамляющие пробелы/переводы
+            let html = marked.parse(cleanedText).trim();
+
+            contentDiv.innerHTML = html;
+            // 4) убираем ведущие/замыкающие <br> и пустые текстовые узлы
+            normalizeMessageNode(contentDiv);
+
             messageDiv.appendChild(contentDiv);
         }
 
         chatContainer.appendChild(messageDiv);
         scrollToBottom();
-    };
+    }
 
-    const addTypingIndicator = () => {
+    function addTypingIndicator() {
         const typingDiv = document.createElement("div");
         typingDiv.classList.add("typing-indicator");
         typingDiv.textContent = "Печатает...";
         chatContainer.appendChild(typingDiv);
         scrollToBottom();
         return typingDiv;
-    };
+    }
 
     const removeTypingIndicator = (typingDiv) => typingDiv.remove();
 
@@ -307,6 +352,27 @@
             document.getElementById("send-button").click();
         }
     });
+
+    // Удаляем пустые текстовые узлы и лишние <br> по краям блока
+    function normalizeMessageNode(el) {
+        // подрезаем сырой HTML от пробелов/переводов вокруг разметки
+        el.innerHTML = el.innerHTML.replace(/^\s+|\s+$/g, '');
+
+        // убираем ведущие пустые узлы и <br>
+        while (el.firstChild && (
+            (el.firstChild.nodeType === 3 && !el.firstChild.nodeValue.trim()) ||
+            (el.firstChild.nodeType === 1 && el.firstChild.tagName === 'BR')
+        )) {
+            el.removeChild(el.firstChild);
+        }
+        // убираем замыкающие пустые узлы и <br>
+        while (el.lastChild && (
+            (el.lastChild.nodeType === 3 && !el.lastChild.nodeValue.trim()) ||
+            (el.lastChild.nodeType === 1 && el.lastChild.tagName === 'BR')
+        )) {
+            el.removeChild(el.lastChild);
+        }
+    }
 </script>
 {% endblock %}
 </body>
