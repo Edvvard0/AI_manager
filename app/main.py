@@ -61,10 +61,6 @@ app.include_router(pages_router)
 
 @app.post("/webhook")
 async def webhook(request: Request) -> None:
-    """
-    Если в будущем решишь перейти на webhooks,
-    этот эндпоинт будет принимать апдейты от Telegram.
-    """
     logging.info("Received webhook request")
     update = Update.model_validate(await request.json(), context={"bot": bot})
     await dp.feed_update(bot, update)

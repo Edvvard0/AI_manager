@@ -17,3 +17,11 @@ class SMessageAdd(BaseModel):
 class STaskAddGPT(BaseModel):
     title: str
     description: str
+
+
+class PromptResponse(BaseModel):
+    response: str
+
+
+class AnswerResponse(BaseModel):
+    answer: str

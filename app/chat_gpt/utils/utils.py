@@ -2,6 +2,7 @@ import asyncio
 import json
 import re
 
+import openai
 from openai import AsyncOpenAI
 from pyasn1_modules.rfc5990 import aes128_Wrap
 from sqlalchemy import select

@@ -1,29 +1,33 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
-from starlette.responses import HTMLResponse
+from starlette.responses import HTMLResponse, JSONResponse
 from starlette.templating import Jinja2Templates
+
+from app.chat_gpt.dao import ChatDAO
 from app.chat_gpt.router import token_info, create_messages_with_add_task, get_all_chats
 
 from app.chat_gpt.router import get_messages
+from app.database import get_session
 from app.users.router import get_worker
 
 router = APIRouter(prefix='/pages', tags=['Страницы'])
 templates = Jinja2Templates(directory='app/templates')
 
 
-# @router.get("/", response_class=HTMLResponse)
-# async def main_page(request: Request):
-#     return templates.TemplateResponse("pages/main_page.html", {
-#         "request": request,
-#     })
-
-
 @router.get("/", response_class=HTMLResponse)
-async def main_page(request: Request, chats = Depends(get_all_chats)):
+async def main_page(request: Request):
     return templates.TemplateResponse("pages/main_page.html", {
         "request": request,
-        "chats": chats
     })
+
+
+# @router.get("/", response_class=HTMLResponse)
+# async def main_page(request: Request, chats = Depends(get_all_chats)):
+#     return templates.TemplateResponse("pages/main_page.html", {
+#         "request": request,
+#         "chats": chats
+#     })
 
 
 @router.get("/current_chat/{chat_id}", response_class=HTMLResponse)

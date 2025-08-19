@@ -1,15 +1,14 @@
-# app/chat_gpt/router.py
-
+import openai
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Form, File
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from starlette.responses import JSONResponse
 
-from app.chat_gpt.schemas import ChatOut, SMessageAdd
-from app.chat_gpt.utils.utils import create_response_gpt, client
-from app.chat_gpt.utils.utils_docx import process_docx_file
-from app.chat_gpt.utils.utils_file import create_file
+from app.chat_gpt.schemas import ChatOut, SMessageAdd, PromptResponse, AnswerResponse
+from app.chat_gpt.utils.utils import create_response_gpt
+from app.chat_gpt.utils.utils_file import process_file
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
 from app.config import settings
 from app.database import get_session, SessionDep
@@ -19,9 +18,15 @@ router = APIRouter(prefix="/chat_gpt", tags=["ChatGPT"])
 
 
 @router.get("/chats/all")
-async def get_all_chats(session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
+async def get_all_chats(session: AsyncSession = Depends(get_session)):
     chats = await ChatDAO.find_all(session)
-    return chats
+    chats_list = [{"id": c.id, "title": c.title, "user_id": c.user_id} for c in chats]
+
+    return JSONResponse(
+        status_code=200,
+        content=chats_list,
+        media_type="application/json; charset=utf-8"
+    )
 
 
 # Создать новый чат по tg_id
@@ -31,13 +36,22 @@ async def create_chat(tg_id: int, title: str, session: AsyncSession = Depends(ge
     new_chat = await ChatDAO.create_chat_by_tg_id(session, tg_id, title)
     if not new_chat:
         raise HTTPException(status_code=404, detail="Пользователь с таким tg_id не найден")
-    return {"message": "Чат создан", "chat_id": new_chat.id}
-
+    return JSONResponse(
+        status_code=200,
+        content={"message": "Чат создан", "chat_id": new_chat.id},
+        media_type="application/json; charset=utf-8"
+    )
 
 @router.get("/chats/{tg_id}")
-async def get_chats(tg_id: int, session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
+async def get_chats(tg_id: int, session: AsyncSession = Depends(get_session)):
     chats = await ChatDAO.get_chats_by_tg_id(session, tg_id)
-    return chats
+    chats_list = [{"id": c.id, "title": c.title, "user_id": c.user_id} for c in chats]
+
+    return JSONResponse(
+        status_code=200,
+        content=chats_list,
+        media_type="application/json; charset=utf-8"
+    )
 
 
 @router.get("/messages/{chat_id}", response_model=List[dict])
@@ -84,22 +98,57 @@ async def token_info(session: SessionDep):
     return res
 
 
-@router.post("/ask")
-async def ask_gpt(session: SessionDep, chat_id: int, prompt: str = Form(...), file: UploadFile = File(...)):
-    # 1. Загружаем файл в OpenAI
-    print("file")
-    vector_store= await create_file(file)
+# @router.post("/ask")
+# async def ask_gpt(session: SessionDep, chat_id: int, prompt: str = Form(...), file: UploadFile = File(...)):
+#     # 1. Загружаем файл в OpenAI
+#     print("file")
+#     vector_store= await create_file(file)
+#
+#     response = await client.responses.create(
+#         model=settings.CHAT_GPT_MODEL,
+#         input=prompt,
+#         tools=[{
+#             "type": "file_search",
+#             "vector_store_ids": [vector_store.id]
+#         }]
+#     )
+#
+#     await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
+#     await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response.output_text)
+#
+#     return {"answer": response.output_text}
 
-    response = await client.responses.create(
-        model=settings.CHAT_GPT_MODEL,
-        input=prompt,
-        tools=[{
-            "type": "file_search",
-            "vector_store_ids": [vector_store.id]
-        }]
-    )
 
-    await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
-    await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response.output_text)
+@router.post("/ask", response_model=AnswerResponse)
+async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile = File(...), prompt: str = Form(...)):
+    try:
+        # Чтение содержимого файла
+        file_content = await file.read()
+        content_type = file.content_type
+        filename = file.filename
 
-    return {"answer": response.output_text}
+        # Обработка файла и формирование сообщений
+        messages = await process_file(file_content, content_type, filename, prompt)
+
+        # Запрос к OpenAI API
+        response = openai.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            max_tokens=1000
+        )
+
+        # Получаем ответ от ChatGPT
+        chatgpt_response = response.choices[0].message.content
+
+        # Сохранение сообщений в БД
+        await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
+        await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=chatgpt_response)
+
+        # Возврат в формате {"answer": "текст"}
+        return {"answer": chatgpt_response}
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"An error occurred: {str(e)}"}
+        )
