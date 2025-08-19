@@ -73,13 +73,16 @@ async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_
     print("message")
     try:
         response = await create_response_gpt(session=session, chat_id=data.chat_id, text=data.content)
-    except Exception as e:
-        return f"произошла ошибка {e}"
+        text = response if isinstance(response, str) else response.get("message") or str(response)
 
-    await MessageDAO.add(session, chat_id=data.chat_id, is_user=True, content=data.content.strip())
-    # print(response.text)
-    await MessageDAO.add(session, chat_id=data.chat_id, is_user=False, content=response.strip())
-    return {"message": response.strip()}
+        await MessageDAO.add(session, chat_id=data.chat_id, is_user=True, content=data.content)
+        await MessageDAO.add(session, chat_id=data.chat_id, is_user=False, content=text)
+
+        return {"message": text}
+
+    except Exception as e:
+        return {"error": f"произошла ошибка: {e}"}
+
 
 
 @router.post("/messages_with_add_task/{chat_id}")
