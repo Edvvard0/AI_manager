@@ -37,9 +37,9 @@
         display: flex;
         justify-content: flex-start;
         padding: 10px;
-        background-color: #ffffff; /* убрали тёмную заливку */
+        background-color: #ffffff;
         z-index: 10;
-        border-bottom: none; /* убрали линию */
+        border-bottom: none;
     }
 
     .menu-button {
@@ -96,7 +96,8 @@
     }
 
     .new-chat-button,
-    .token-button {
+    .token-button,
+    .task-button {
         padding: 10px 20px;
         background-color: #ffffff;
         color: #000000;
@@ -113,7 +114,8 @@
     }
 
     .new-chat-button:hover,
-    .token-button:hover {
+    .token-button:hover,
+    .task-button:hover {
         background-color: #f0f0f0;
     }
 
@@ -132,7 +134,7 @@
 
     .modal-content {
         background-color: #ffffff;
-        padding: 15px 15px 20px 15px; /* убрали обводку, сократили паддинги сверху */
+        padding: 15px 15px 20px 15px;
         border-radius: 5px;
         text-align: center;
         width: 300px;
@@ -144,7 +146,7 @@
     #chat-name-input {
         width: calc(100% - 20px);
         padding: 10px;
-        margin-bottom: 8px; /* уменьшили расстояние до кнопки */
+        margin-bottom: 8px;
         border: 1px solid #ccc;
         border-radius: 5px;
         box-sizing: border-box;
@@ -178,11 +180,10 @@
     <div class="sidebar" id="sidebar">
         <div class="close-button" id="close-button">×</div>
         <h3 style="margin-left: 20px;">Чаты</h3>
-        <ul class="chat-list" id="chat-list">
-            <!-- Чаты будут добавлены динамически -->
-        </ul>
+        <ul class="chat-list" id="chat-list"></ul>
         <button class="new-chat-button" id="new-chat-button">Создать новый чат</button>
         <button class="token-button" id="token-button">Токены</button>
+        <button class="task-button" id="task-button">Задачи</button>
     </div>
     <div class="modal" id="new-chat-modal">
         <div class="modal-content">
@@ -194,14 +195,12 @@
     {% block extra_scripts %}{% endblock %}
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Проверка инициализации Telegram Web App
             if (typeof window.Telegram === 'undefined' || !window.Telegram.WebApp) {
-                console.error('Telegram WebApp is not loaded. Ensure telegram-web-app.js is loaded correctly.');
+                console.error('Telegram WebApp is not loaded.');
                 alert('Ошибка: Telegram WebApp не загружен');
                 return;
             }
 
-            // Инициализация Telegram Web App
             window.Telegram.WebApp.ready();
             window.Telegram.WebApp.expand();
 
@@ -213,57 +212,36 @@
             const createChatButton = document.getElementById('create-chat-button');
             const chatList = document.getElementById('chat-list');
             const tokenButton = document.getElementById('token-button');
+            const taskButton = document.getElementById('task-button');
 
-            // Проверка наличия элементов DOM
-            if (!menuButton || !sidebar || !closeButton || !newChatButton || !newChatModal || !createChatButton || !chatList || !tokenButton) {
-                console.error('One or more DOM elements not found:', {
-                    menuButton, sidebar, closeButton, newChatButton, newChatModal, createChatButton, chatList, tokenButton
-                });
-                alert('Ошибка: один или несколько элементов DOM не найдены');
-                return;
-            }
-
-            // Открытие бокового меню
             menuButton.addEventListener('click', () => {
-                console.log('Menu button clicked');
                 sidebar.classList.add('open');
                 const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id || localStorage.getItem('userId');
                 if (userId) {
-                    console.log('Fetching chats for userId:', userId);
                     fetchChats(userId);
-                } else {
-                    console.error('User ID not found. Ensure Telegram WebApp is initialized or userId is stored in localStorage.');
-                    alert('Ошибка: пользователь не идентифицирован');
                 }
             });
 
-            // Закрытие бокового меню
             closeButton.addEventListener('click', () => {
                 sidebar.classList.remove('open');
             });
 
-            // Открытие модального окна для создания чата
             newChatButton.addEventListener('click', () => {
-                console.log('New chat button clicked');
                 newChatModal.style.display = 'flex';
             });
 
-            // Обработка создания чата
             const handleCreateChat = async () => {
                 const chatName = document.getElementById('chat-name-input').value.trim();
                 const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id || localStorage.getItem('userId');
                 if (!chatName) {
-                    console.error('Chat name is empty');
                     alert('Пожалуйста, введите название чата');
                     return;
                 }
                 if (!userId) {
-                    console.error('User ID is missing');
                     alert('Ошибка: пользователь не идентифицирован');
                     return;
                 }
 
-                console.log('Creating chat with name:', chatName, 'for userId:', userId);
                 try {
                     const response = await fetch(`/chat_gpt/chats/?tg_id=${userId}&title=${encodeURIComponent(chatName)}`, {
                         method: 'POST',
@@ -272,46 +250,21 @@
                             'Accept': 'application/json'
                         }
                     });
-                    const contentType = response.headers.get('content-type');
-                    const text = await response.text();
-                    console.log('Raw response from POST /chat_gpt/chats:', text, 'Content-Type:', contentType, 'Status:', response.status);
-                    if (!contentType || !contentType.includes('application/json')) {
-                        console.error('Non-JSON response received from POST /chat_gpt/chats:', text);
-                        alert(`Ошибка в POST /chat_gpt/chats:\nСервер вернул не-JSON ответ\nURL: ${response.url}\nContent-Type: ${contentType || 'не указан'}\nStatus: ${response.status}\nResponse: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
-                        throw new Error('Server returned non-JSON response');
-                    }
-                    let data;
-                    try {
-                        data = JSON.parse(text);
-                    } catch (e) {
-                        console.error('Failed to parse POST response as JSON:', text);
-                        alert(`Ошибка в POST /chat_gpt/chats:\nНе удалось разобрать JSON\nURL: ${response.url}\nContent-Type: ${contentType}\nStatus: ${response.status}\nResponse: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
-                        throw new Error(`Failed to parse JSON: ${text}`);
-                    }
+                    const data = await response.json();
                     if (!response.ok) {
-                        console.error('POST /chat_gpt/chats failed:', response.status, data);
-                        alert(`Ошибка в POST /chat_gpt/chats:\nСтатус: ${response.status}\nURL: ${response.url}\nResponse: ${JSON.stringify(data)}`);
-                        throw new Error(`Network response was not ok: ${response.status}, ${JSON.stringify(data)}`);
+                        alert(`Ошибка: ${JSON.stringify(data)}`);
+                        return;
                     }
-                    console.log('Chat created:', data);
                     await fetchChats(userId);
                     newChatModal.style.display = 'none';
                     document.getElementById('chat-name-input').value = '';
                 } catch (error) {
-                    console.error('Error creating chat:', error);
-                    alert(`Ошибка при создании чата:\n${error.message}\nURL: ${response?.url || 'не определён'}`);
+                    console.error('Ошибка при создании чата:', error);
                 }
             };
 
-            // Обработчики для click и touchend
             createChatButton.addEventListener('click', handleCreateChat);
-            createChatButton.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                console.log('Create chat button touched');
-                handleCreateChat();
-            });
 
-            // Закрытие модального окна при клике вне области
             newChatModal.addEventListener('click', (e) => {
                 if (e.target === newChatModal) {
                     newChatModal.style.display = 'none';
@@ -319,28 +272,16 @@
                 }
             });
 
-            // Навигация по кнопке "Токены"
             tokenButton.addEventListener('click', () => {
-                console.log('Token button clicked');
                 window.location.href = '/pages/token_info';
             });
 
-            // Получение списка чатов
+            taskButton.addEventListener('click', () => {
+                window.location.href = '/pages/all_tasks';
+            });
+
             async function fetchChats(userId) {
                 let chatList = document.getElementById('chat-list');
-                if (!chatList) {
-                    console.warn('Element with id "chat-list" not found, creating it...');
-                    chatList = document.createElement('ul');
-                    chatList.id = 'chat-list';
-                    chatList.classList.add('chat-list');
-                    const sidebar = document.getElementById('sidebar');
-                    if (sidebar) {
-                        sidebar.insertBefore(chatList, sidebar.querySelector('.new-chat-button'));
-                    } else {
-                        document.body.appendChild(chatList);
-                    }
-                }
-
                 try {
                     const response = await fetch(`/chat_gpt/chats/all`, {
                         headers: {
@@ -348,22 +289,7 @@
                         }
                     });
 
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
-                        const text = await response.text();
-                        console.error('Non-JSON response received from GET /chat_gpt/chats:', text);
-                        alert(`Ошибка в GET /chat_gpt/chats:\nСервер вернул не-JSON ответ\nURL: ${response.url}\nContent-Type: ${contentType || 'не указан'}\nStatus: ${response.status}\nResponse: ${text.substring(0, 200)}${text.length > 200 ? '...' : ''}`);
-                        throw new Error('Server returned non-JSON response');
-                    }
-
                     const chats = await response.json();
-                    if (!response.ok) {
-                        console.error('GET /chat_gpt/chats failed:', response.status, chats);
-                        alert(`Ошибка в GET /chat_gpt/chats:\nСтатус: ${response.status}\nURL: ${response.url}\nResponse: ${JSON.stringify(chats)}`);
-                        throw new Error(`HTTP error! status: ${response.status}, ${JSON.stringify(chats)}`);
-                    }
-
-                    console.log('Received chats from server:', chats);
                     chatList.innerHTML = '';
                     if (Array.isArray(chats)) {
                         chats.forEach(chat => {
@@ -372,18 +298,13 @@
                             chatItem.textContent = chat.title || 'Без названия';
                             chatItem.dataset.chatId = chat.id;
                             chatItem.addEventListener('click', () => {
-                                console.log('Navigating to chat:', chat.id);
                                 window.location.href = `/pages/current_chat/${chat.id}`;
                             });
                             chatList.appendChild(chatItem);
                         });
-                    } else {
-                        console.warn('Expected an array of chats, but got:', chats);
-                        alert('Ошибка: Сервер вернул некорректные данные чатов');
                     }
                 } catch (error) {
                     console.error('Ошибка при загрузке чатов:', error);
-                    alert(`Ошибка при загрузке чатов:\n${error.message}\nURL: ${error.response?.url || 'не определён'}`);
                 }
             }
         });
