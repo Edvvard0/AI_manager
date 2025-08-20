@@ -125,29 +125,23 @@ async def token_info(session: SessionDep):
 @router.post("/ask", response_model=AnswerResponse)
 async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile = File(...), prompt: str = Form(...)):
     try:
-        # Чтение содержимого файла
         file_content = await file.read()
         content_type = file.content_type
         filename = file.filename
 
-        # Обработка файла и формирование сообщений
         messages = await process_file(file_content, content_type, filename, prompt)
 
-        # Запрос к OpenAI API
         response = openai.chat.completions.create(
             model="gpt-4o",
             messages=messages,
             max_tokens=1000
         )
 
-        # Получаем ответ от ChatGPT
         chatgpt_response = response.choices[0].message.content
 
-        # Сохранение сообщений в БД
         await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
         await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=chatgpt_response)
 
-        # Возврат в формате {"answer": "текст"}
         return {"answer": chatgpt_response}
 
     except Exception as e:
@@ -155,3 +149,11 @@ async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile =
             status_code=500,
             content={"error": f"An error occurred: {str(e)}"}
         )
+
+
+@router.delete("/{chat_id}")
+async def delete_task(chat_id: int, session: AsyncSession = Depends(get_session)):
+    deleted_count = await ChatDAO.delete(session, id=chat_id)
+    if deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return {"status": "success", "deleted": deleted_count}
