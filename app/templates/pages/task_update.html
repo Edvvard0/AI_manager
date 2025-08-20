@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Редактирование задачи{% endblock %}
+
+{% block extra_head %}
+<style>
+    .task-container {
+        margin: 20px 0;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        background: #fff;
+    }
+    .task-title {
+        font-size: 20px;
+        font-weight: bold;
+        margin-bottom: 15px;
+    }
+    .input-field,
+    .select-field,
+    .date-field {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 12px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+    }
+    .file-upload input[type="file"] {
+        display: none;
+    }
+    .file-label {
+        display: inline-block;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        cursor: pointer;
+        background-color: #f8f9fa;
+    }
+    .file-label:hover {
+        background-color: #e9ecef;
+    }
+    .file-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 10px;
+        margin-top: 8px;
+        background-color: #f1f1f1;
+        border: 1px solid #ccc;
+        border-radius: 16px;
+        font-size: 14px;
+    }
+    .file-chip span {
+        margin-right: 8px;
+    }
+    .file-chip .remove-file {
+        font-size: 16px;
+        color: #333;
+        cursor: pointer;
+    }
+    .file-chip .remove-file:hover {
+        color: #ff0000;
+    }
+    .save-button {
+        display: block;
+        width: 220px;
+        padding: 12px;
+        background-color: #fff;
+        color: #000;
+        border: 1px solid #000;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 20px;
+        text-align: center;
+        font-weight: bold;
+    }
+    .save-button:hover {
+        background-color: #f5f5f5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="task-container" data-task-id="{{ task.id }}">
+    <br>
+    <div class="task-title">Редактирование задачи №{{ task.id }}</div>
+
+    <input type="text" class="input-field" value="{{ task.title }}" id="title">
+    <textarea class="input-field" rows="3" id="description">{{ task.description }}</textarea>
+
+    <!-- Выпадающий список исполнителей -->
+    <select class="select-field" id="executor">
+        <option value="">Выберите исполнителя</option>
+        {% for executor in executors %}
+            <option value="{{ executor.id }}" {% if executor.id == task.executor_id %}selected{% endif %}>
+                {{ executor.name }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <!-- Выпадающий список чатов -->
+    <select class="select-field" id="chat">
+        <option value="">Выберите чат</option>
+        {% for chat in chats %}
+            <option value="{{ chat.id }}" {% if chat.id == task.chat_id %}selected{% endif %}>
+                {{ chat.title }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <input type="date" class="date-field" id="deadline" value="{{ task.deadline_date }}">
+
+    <div class="file-upload">
+        <label class="file-label" for="file">Выберите файл</label>
+        <input type="file" id="file" onchange="showFileName()">
+        <div id="uploaded" class="file-chip" style="display:none;">
+            <span id="filename"></span>
+            <span class="remove-file" onclick="clearFile()">×</span>
+        </div>
+    </div>
+
+    <button class="save-button" onclick="saveTask()">💾 Сохранить изменения</button>
+</div>
+
+<script>
+    function showFileName() {
+        const fileInput = document.getElementById("file");
+        const uploadedDiv = document.getElementById("uploaded");
+        const filenameSpan = document.getElementById("filename");
+
+        if (fileInput.files.length > 0) {
+            filenameSpan.textContent = fileInput.files[0].name;
+            uploadedDiv.style.display = "inline-flex";
+        }
+    }
+
+    function clearFile() {
+        const fileInput = document.getElementById("file");
+        const uploadedDiv = document.getElementById("uploaded");
+        const filenameSpan = document.getElementById("filename");
+
+        fileInput.value = "";
+        filenameSpan.textContent = "";
+        uploadedDiv.style.display = "none";
+    }
+
+    async function saveTask() {
+        const taskId = document.querySelector(".task-container").dataset.taskId;
+        const title = document.getElementById("title").value;
+        const description = document.getElementById("description").value;
+        const executorId = document.getElementById("executor").value || null;
+        const chatId = document.getElementById("chat").value || null;
+        const deadline = document.getElementById("deadline").value;
+        const fileInput = document.getElementById("file");
+
+        const taskData = {
+            title,
+            description,
+            deadline_date: deadline,
+            executor_id: executorId,
+            chat_id: chatId,
+            status: "Начал"
+        };
+
+        try {
+            // Обновляем задачу
+            const response = await fetch(`/tasks/${taskId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(taskData)
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                alert(`Ошибка при обновлении задачи: ${result.detail || 'Неизвестная ошибка'}`);
+                return;
+            }
+
+            // Загружаем файл (если есть)
+            if (fileInput.files.length > 0) {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                const fileResponse = await fetch(`/tasks/upload_file/${taskId}`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!fileResponse.ok) {
+                    alert('Файл не удалось загрузить');
+                }
+            }
+
+            alert("Задача успешно обновлена!");
+            window.location.href = `/pages/all_tasks`;
+
+        } catch (error) {
+            console.error("Ошибка при сохранении:", error);
+            alert("Ошибка при сохранении задачи: " + error.message);
+        }
+    }
+</script>
+{% endblock %}

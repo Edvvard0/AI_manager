@@ -29,6 +29,12 @@ async def get_all_chats(session: AsyncSession = Depends(get_session)):
     )
 
 
+@router.get("/chats/all/test")
+async def get_all_chats_test(session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
+    chats = await ChatDAO.find_all(session)
+    return chats
+
+
 # Создать новый чат по tg_id
 @router.post("/chats/")
 async def create_chat(tg_id: int, title: str, session: AsyncSession = Depends(get_session)):

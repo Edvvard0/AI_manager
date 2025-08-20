@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Список задач{% endblock %}
+
+{% block extra_head %}
+<style>
+  .tasks-wrapper {
+    padding: 20px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-y: auto;
+  }
+
+  .task-container {
+    margin-bottom: 15px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  .task-container:hover {
+    background-color: #f9f9f9;
+  }
+
+  .task-title {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 8px;
+  }
+
+  .task-info {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 4px;
+  }
+
+  .executor {
+    font-weight: bold;
+    color: #000;
+  }
+
+  .deadline {
+    color: #000000;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tasks-wrapper">
+    <br>
+    <br>
+  <h1>Список задач</h1>
+
+  {% if tasks %}
+    {% for task in tasks %}
+      <div class="task-container" onclick="openTask({{ task.id }})">
+        <div class="task-title">{{ task.title }}</div>
+        <div class="task-info">
+          Исполнитель:
+          {% if task.executor %}
+            <span class="executor">{{ task.executor.name }} ({{ task.executor.department }})</span>
+          {% else %}
+            <span class="executor">не назначен</span>
+          {% endif %}
+        </div>
+        <div class="task-info">
+          Дедлайн:
+          <span class="deadline">{{ task.deadline_date }}</span>
+        </div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p>Задач пока нет.</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  function openTask(taskId) {
+    window.location.href = `/pages/current_task/${taskId}`;
+  }
+</script>
+{% endblock %}

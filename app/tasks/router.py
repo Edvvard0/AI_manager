@@ -39,14 +39,14 @@ async def upload_file_for_task(session: SessionDep, task_id: int, file: UploadFi
 
 
 # Получить все задачи
-@router.get("/", response_model=List[TaskOut | None])
+@router.get("/")
 async def get_all_tasks(session: SessionDep):
     tasks = await TaskDAO.find_all(session)
     return tasks
 
 
 # Получить задачу по id
-@router.get("/{task_id}", response_model=TaskOut)
+@router.get("/{task_id}")
 async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_session)):
     task = await TaskDAO.find_one_or_none_by_id(session, task_id)
     if not task:

@@ -5,10 +5,11 @@ from starlette.responses import HTMLResponse, JSONResponse
 from starlette.templating import Jinja2Templates
 
 from app.chat_gpt.dao import ChatDAO
-from app.chat_gpt.router import token_info, create_messages_with_add_task, get_all_chats
+from app.chat_gpt.router import token_info, create_messages_with_add_task, get_all_chats, get_all_chats_test
 
 from app.chat_gpt.router import get_messages
 from app.database import get_session
+from app.tasks.router import get_all_tasks, get_task_by_id
 from app.users.router import get_worker
 
 router = APIRouter(prefix='/pages', tags=['Страницы'])
@@ -64,5 +65,36 @@ async def add_tasks_page(request: Request,
         "executors": executors,
         "tasks": tasks,
         "chat_id": chat_id
+    })
+
+
+@router.get("/all_tasks", response_class=HTMLResponse)
+async def all_tasks_page(request: Request,
+                     tasks = Depends(get_all_tasks)):
+    return templates.TemplateResponse("pages/tasks_list.html", {
+        "request": request,
+        "tasks": tasks,
+    })
+
+
+@router.get("/current_task/{task_id}", response_class=HTMLResponse)
+async def current_task_page(request: Request,
+                     task = Depends(get_task_by_id)):
+    return templates.TemplateResponse("pages/current_task.html", {
+        "request": request,
+        "task": task,
+    })
+
+
+@router.get("/task_update/{task_id}", response_class=HTMLResponse)
+async def task_update_page(request: Request,
+                     task = Depends(get_task_by_id),
+                     executors = Depends(get_worker),
+                     chats = Depends(get_all_chats_test)):
+    return templates.TemplateResponse("pages/task_update.html", {
+        "request": request,
+        "task": task,
+        "executors": executors,
+        "chats": chats
     })
 

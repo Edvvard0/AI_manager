@@ -1,5 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from app.dao.base import BaseDAO
 from app.tasks.models import Task
@@ -26,3 +27,26 @@ class TaskDAO(BaseDAO):
         await session.commit()
         await session.refresh(new_task)  # обновляем объект из БД, теперь есть id
         return new_task
+
+    @classmethod
+    async def find_all(cls, session: AsyncSession):
+        result = await session.execute(
+            select(Task)
+            .options(
+                joinedload(Task.executor),  # подгрузим исполнителя
+                joinedload(Task.chats)      # подгрузим чат
+            )
+        )
+        return result.scalars().all()
+
+    @classmethod
+    async def find_one_or_none_by_id(cls, session: AsyncSession, task_id: int):
+        result = await session.execute(
+            select(Task)
+            .where(Task.id == task_id)
+            .options(
+                joinedload(Task.executor),  # подгрузим исполнителя
+                joinedload(Task.chats)      # подгрузим чат
+            )
+        )
+        return result.scalar_one_or_none()
