@@ -6,7 +6,7 @@ from datetime import date
 from app.bot.create_bot import send_task_user
 from app.database import get_session, SessionDep
 from app.tasks.dao import TaskDAO
-from app.tasks.schemas import TaskOut, TaskCreate, TaskUpdate
+from app.tasks.schemas import TaskOut, TaskCreate, TaskUpdate, TaskFilter
 from app.tasks.utils import save_uploaded_file
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
@@ -42,6 +42,16 @@ async def upload_file_for_task(session: SessionDep, task_id: int, file: UploadFi
 @router.get("/")
 async def get_all_tasks(session: SessionDep):
     tasks = await TaskDAO.find_all(session)
+    return tasks
+
+
+@router.get("/filters/", response_model=List[TaskOut])
+async def get_tasks(
+    session: SessionDep,
+    filters: TaskFilter = Depends(),
+
+):
+    tasks = await TaskDAO.find_by_filters(session, filters)
     return tasks
 
 

@@ -8,7 +8,10 @@ class Settings(BaseSettings):
     ADMIN_IDS: List[int]
     FORMAT_LOG: str = "{time:YYYY-MM-DD at HH:mm:ss} | {level} | {message}"
     LOG_ROTATION: str = "10 MB"
-    DB_URL: str = 'sqlite+aiosqlite:///data/db.sqlite3'
+    # DB_URL: str = 'sqlite+aiosqlite:///data/db.sqlite3'
+    #"postgresql+asyncpg://postgres:postgres@localhost:5432/ai_db"
+
+    DB_URL: str
     BASE_SITE: str
 
     CHAT_GPT_API_KEY: str

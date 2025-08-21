@@ -40,3 +40,10 @@ class TaskOut(BaseModel):
     file_path: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class TaskFilter(BaseModel):
+    status: Optional[str] = None
+    executor_id: Optional[int] = None
+    deadline_from: Optional[date] = None
+    deadline_to: Optional[date] = None

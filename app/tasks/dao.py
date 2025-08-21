@@ -1,10 +1,12 @@
+from typing import List
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.dao.base import BaseDAO
 from app.tasks.models import Task
-from app.tasks.schemas import TaskCreate
+from app.tasks.schemas import TaskCreate, TaskFilter
 
 
 class TaskDAO(BaseDAO):
@@ -50,3 +52,22 @@ class TaskDAO(BaseDAO):
             )
         )
         return result.scalar_one_or_none()
+
+    @classmethod
+    async def find_by_filters(cls, session: AsyncSession, filters: TaskFilter) -> List[Task]:
+        query = select(cls.model)
+
+        if filters.status:
+            query = query.where(cls.model.status == filters.status)
+
+        if filters.executor_id:
+            query = query.where(cls.model.executor_id == filters.executor_id)
+
+        if filters.deadline_from:
+            query = query.where(cls.model.deadline_date >= filters.deadline_from)
+
+        if filters.deadline_to:
+            query = query.where(cls.model.deadline_date <= filters.deadline_to)
+
+        result = await session.execute(query)
+        return result.scalars().all()
