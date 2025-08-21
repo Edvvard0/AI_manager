@@ -63,6 +63,9 @@ class TaskDAO(BaseDAO):
         if filters.executor_id:
             query = query.where(cls.model.executor_id == filters.executor_id)
 
+        if filters.project_id:
+            query = query.where(cls.model.project_id == filters.project_id)
+
         if filters.deadline_from:
             query = query.where(cls.model.deadline_date >= filters.deadline_from)
 
