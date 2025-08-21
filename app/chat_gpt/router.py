@@ -6,13 +6,13 @@ from typing import List
 
 from starlette.responses import JSONResponse
 
-from app.chat_gpt.schemas import ChatOut, SMessageAdd, PromptResponse, AnswerResponse
+from app.chat_gpt.schemas import ChatOut, SMessageAdd, PromptResponse, AnswerResponse, ChatMessageSearchOut
 from app.chat_gpt.utils.utils import create_response_gpt
 from app.chat_gpt.utils.utils_file import process_file
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
 from app.config import settings
 from app.database import get_session, SessionDep
-from app.chat_gpt.dao import ChatDAO, MessageDAO
+from app.chat_gpt.dao import ChatDAO, MessageDAO, SearchDAO
 
 router = APIRouter(prefix="/chat_gpt", tags=["ChatGPT"])
 
@@ -155,6 +155,15 @@ async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile =
             status_code=500,
             content={"error": f"An error occurred: {str(e)}"}
         )
+
+
+@router.get("/chats-messages", response_model=list[ChatMessageSearchOut])
+async def search_chats_and_messages(
+    q: str,
+    session: SessionDep,
+):
+    results = await SearchDAO.search_chats_and_messages(session, q)
+    return results
 
 
 @router.delete("/{chat_id}")

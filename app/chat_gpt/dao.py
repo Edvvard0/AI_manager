@@ -1,8 +1,9 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, desc, asc
+from sqlalchemy import select, desc, asc, or_, func, cast, REAL, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.chat_gpt.models import Chat, Message
+from app.chat_gpt.schemas import ChatSearchResult
 from app.users.models import User
 from app.dao.base import BaseDAO
 
@@ -86,3 +87,40 @@ class MessageDAO(BaseDAO):
         )
         result = await session.execute(query)
         return list(result.scalars().all())
+
+
+class SearchDAO:
+    @classmethod
+    async def search_chats_and_messages(cls, session: AsyncSession, query: str):
+        """
+        Полнотекстовый/триграммный поиск:
+        - по названию чата
+        - по содержимому сообщений (всех: и user, и GPT)
+        """
+
+        await session.execute(select(func.set_limit(cast(0.1, REAL))))  # снижаем лимит
+
+        stmt = (
+            select(
+                Chat.id.label("chat_id"),
+                Chat.title.label("chat_title"),
+                Message.id.label("message_id"),
+                Message.content.label("message_content"),
+                func.greatest(
+                    func.similarity(Chat.title, query),
+                    func.similarity(Message.content, query)
+                ).label("rank"),
+            )
+            .outerjoin(Message, Chat.id == Message.chat_id)
+            .where(
+                or_(
+                    Chat.title.op("%")(query),
+                    Message.content.op("%")(query),
+                    Message.content.ilike(f"%{query}%")
+                )
+            )
+            .order_by(text("rank DESC"))
+        )
+
+        result = await session.execute(stmt)
+        return [ChatSearchResult(**row._mapping) for row in result.all()]

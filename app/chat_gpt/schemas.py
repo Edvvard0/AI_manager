@@ -26,3 +26,20 @@ class PromptResponse(BaseModel):
 
 class AnswerResponse(BaseModel):
     answer: str
+
+
+class ChatMessageSearchOut(BaseModel):
+    chat_id: int
+    chat_title: str
+    message_id: Optional[int] = None
+    message_content: Optional[str] = None
+    rank: float
+
+
+
+class ChatSearchResult(BaseModel):
+    chat_id: int
+    chat_title: str
+    message_id: Optional[int] = None
+    message_content: Optional[str] = None
+    rank: float
