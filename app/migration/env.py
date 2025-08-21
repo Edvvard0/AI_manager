@@ -14,6 +14,7 @@ from app.database import Base
 from app.users.models import User
 from app.tasks.models import Task
 from app.chat_gpt.models import Chat, Message
+from app.project.models import Project
 
 config = context.config
 config.set_main_option("sqlalchemy.url", database_url)

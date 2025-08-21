@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import ForeignKey, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
@@ -9,12 +11,18 @@ class Chat(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    title: Mapped[str]  # например, "Чат про программирование"
+
+    # связь с проектом (опционально)
+    project_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
+    )
+
+    title: Mapped[str]
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user: Mapped["User"] = relationship(back_populates="chats")
+    project: Mapped[Optional["Project"]] = relationship(back_populates="chats")
     messages: Mapped[list["Message"]] = relationship(back_populates="chat", cascade="all, delete-orphan")
-    tasks: Mapped["Task"] = relationship(back_populates="chats")
 
 
 class Message(Base):

@@ -15,7 +15,7 @@ from app.tasks.router import router as task_router
 from app.chat_gpt.router import router as gpt_router
 from app.pages.router import router as pages_router
 from app.users.router import router as user_router
-# from app.chat_gpt.file_router import router as file_router
+from app.project.router import router as project_router
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -55,6 +55,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(task_router)
 app.include_router(gpt_router)
 app.include_router(user_router)
+app.include_router(project_router)
 
 app.include_router(pages_router)
 

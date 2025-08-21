@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Optional
 
 from sqlalchemy import BigInteger, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -18,13 +19,14 @@ class Task(Base):
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
 
-    chat_id: Mapped[int] = mapped_column(
-        ForeignKey("chats.id", ondelete="SET NULL"), nullable=True
+    # связь только с проектом
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
     )
 
     status: Mapped[str]
-    comment: Mapped[str] = mapped_column(nullable=True)
-    file_path: Mapped[str] = mapped_column(nullable=True)
+    comment: Mapped[Optional[str]] = mapped_column(nullable=True)
+    file_path: Mapped[Optional[str]] = mapped_column(nullable=True)
 
     executor: Mapped["User"] = relationship(back_populates="tasks")
-    chats: Mapped["Chat"] = relationship(back_populates="tasks")
+    project: Mapped["Project"] = relationship(back_populates="tasks")
