@@ -55,6 +55,12 @@ async def get_tasks(
     return tasks
 
 
+@router.get("/search/tasks")
+async def search_tasks(q: str, session: SessionDep):
+    print(q)
+    return await TaskDAO.search(session, q)
+
+
 # Получить задачу по id
 @router.get("/{task_id}")
 async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_session)):

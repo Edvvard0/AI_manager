@@ -1,8 +1,9 @@
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import BigInteger, ForeignKey
+from sqlalchemy import BigInteger, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy_utils import TSVectorType
 
 from app.database import Base
 
@@ -30,3 +31,11 @@ class Task(Base):
 
     executor: Mapped["User"] = relationship(back_populates="tasks")
     project: Mapped["Project"] = relationship(back_populates="tasks")
+
+    search_vector: Mapped[str] = mapped_column(
+        TSVectorType("title", "description"), nullable=True
+    )
+
+    __table_args__ = (
+        Index("ix_tasks_search", "search_vector", postgresql_using="gin"),
+    )

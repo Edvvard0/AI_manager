@@ -1,6 +1,7 @@
 from typing import List
 
-from sqlalchemy import select
+from sqlalchemy import select, func, text, cast, REAL
+from sqlalchemy.dialects.postgresql import plainto_tsquery
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -73,4 +74,34 @@ class TaskDAO(BaseDAO):
             query = query.where(cls.model.deadline_date <= filters.deadline_to)
 
         result = await session.execute(query)
+        return result.scalars().all()
+
+
+    @classmethod
+    async def search(cls, session: AsyncSession, term: str, limit: int = 20):
+        """
+        Поиск задач по title, description и comment
+        через триграммный fuzzy search (pg_trgm).
+        """
+
+        await session.execute(select(func.set_limit(cast(0.1, REAL))))
+
+        # Конкатенация колонок
+        columns = (
+            func.coalesce(Task.title, "")
+            .concat(func.coalesce(Task.description, ""))
+            .concat(func.coalesce(Task.comment, ""))
+        ).self_group()
+
+        stmt = (
+            select(
+                Task,
+                func.similarity(columns, term).label("rank")
+            )
+            .where(columns.bool_op("%")(term))   # триграммный поиск
+            .order_by(func.similarity(columns, term).desc())
+            .limit(limit)
+        )
+
+        result = await session.execute(stmt)
         return result.scalars().all()
