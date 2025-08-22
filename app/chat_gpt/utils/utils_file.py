@@ -10,6 +10,7 @@ from fastapi import UploadFile
 from openai import OpenAI
 from pydantic import BaseModel
 
+from app.chat_gpt.utils.promts import _is_minutes_analysis, build_minutes_messages
 from app.chat_gpt.utils.utils import client
 from app.config import settings
 
@@ -33,6 +34,7 @@ from app.config import settings
 #     print(vector_store.id)
 #
 #     return vector_store
+
 
 
 async def process_file(file_content: bytes, content_type: str, filename: str, prompt: str) -> list:
@@ -83,15 +85,19 @@ async def process_file(file_content: bytes, content_type: str, filename: str, pr
             ]
         })
 
-    elif content_type.startswith('audio/') or file_extension in ['.mp3', '.wav', '.m4a']:
-        # Аудио файлы: транскрипция с Whisper
+    elif content_type.startswith('audio/') or file_extension in ['.mp3', '.wav', '.m4a', "m4a"]:
         audio_file = BytesIO(file_content)
-        audio_file.name = filename  # OpenAI требует имя файла
+        audio_file.name = filename
         transcription = openai.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file
         )
-        file_text = transcription.text
+
+        file_text = transcription.text or ""
+
+        if _is_minutes_analysis(prompt):
+            return build_minutes_messages(file_text)
+
         full_prompt = f"{prompt}\n\nAudio transcription:\n{file_text}"
         messages.append({"role": "user", "content": full_prompt})
 

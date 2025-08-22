@@ -5,21 +5,6 @@ from app.config import settings
 from app.database import SessionDep
 
 
-SYSTEM_PROMPT = """
-Отвечай строго в формате JSON, соответствующем этой Pydantic-модели:
-
-{
-    "title": "string — название задачи",
-    "description": "string — описание задачи",
-    "deadline_date": "YYYY-MM-DD",
-    "executor_id": int,
-    "status": "Начал" 
-}
-
-Не добавляй ничего кроме JSON. ОТВЕЧАЙ ОТТДЕЛЬНЫМИ JSON {...} {...}
-"""
-
-
 def count_tokens(messages, model):
     enc = tiktoken.encoding_for_model(model)
     return sum(len(enc.encode(m)) for m in messages)

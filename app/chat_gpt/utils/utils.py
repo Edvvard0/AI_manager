@@ -10,7 +10,7 @@ from sqlalchemy.orm import joinedload, selectinload
 
 from app.bot.create_bot import send_task_user
 from app.chat_gpt.dao import  MessageDAO
-from app.chat_gpt.utils.utils_token import SYSTEM_PROMPT
+from app.chat_gpt.utils.promts import SYSTEM_PROMPT
 
 from app.config import settings
 from app.database import SessionDep, async_session_maker

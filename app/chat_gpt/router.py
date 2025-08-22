@@ -148,6 +148,7 @@ async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile =
         await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
         await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=chatgpt_response)
 
+        print(chatgpt_response)
         return {"answer": chatgpt_response}
 
     except Exception as e:
