@@ -1,18 +1,22 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
-class SUser(BaseModel):
-    id: int
+class UserBase(BaseModel):
     name: str
-    username: str
-    tg_id: int
+    username: Optional[str] = None
+    tg_id: Optional[int] = None
     department: str
-    is_admin: bool
+    is_admin: bool = False
 
 
-class SUserAdd(BaseModel):
-    name: str
-    username: str
-    tg_id: int
-    department: str
-    is_admin: bool
+class UserCreate(UserBase):
+    pass
+
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    username: Optional[str] = None
+    tg_id: Optional[int] = None
+    department: Optional[str] = None
+    is_admin: Optional[bool] = None

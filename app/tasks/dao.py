@@ -98,7 +98,7 @@ class TaskDAO(BaseDAO):
                 Task,
                 func.similarity(columns, term).label("rank")
             )
-            .where(columns.bool_op("%")(term))   # триграммный поиск
+            .where(columns.bool_op("%")(term))
             .order_by(func.similarity(columns, term).desc())
             .limit(limit)
         )
