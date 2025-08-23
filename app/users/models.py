@@ -21,3 +21,4 @@ class User(Base):
         back_populates="executor", cascade="all, delete-orphan"
     )
     chats: Mapped["Chat"] = relationship(back_populates="user")
+    projects: Mapped["Project"] = relationship(back_populates="user")

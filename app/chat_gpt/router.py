@@ -28,24 +28,31 @@ async def get_all_chats(session: AsyncSession = Depends(get_session)):
     )
 
 
-@router.get("/chats/all/test")
-async def get_all_chats_test(session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
-    chats = await ChatDAO.find_all(session)
-    return chats
+# @router.get("/chats/all/test")
+# async def get_all_chats_test(session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
+#     chats = await ChatDAO.find_all(session)
+#     return chats
 
 
 # Создать новый чат по tg_id
 @router.post("/chats/")
-async def create_chat(tg_id: int, title: str, session: AsyncSession = Depends(get_session)):
-    print("create chat")
-    new_chat = await ChatDAO.create_chat_by_tg_id(session, tg_id, title)
+async def create_chat(
+    tg_id: int,
+    title: str,
+    project_id: int | None = None,
+    session: AsyncSession = Depends(get_session)
+):
+    # print("create chat")
+    new_chat = await ChatDAO.create_chat_by_tg_id(session, tg_id, title, project_id)
     if not new_chat:
         raise HTTPException(status_code=404, detail="Пользователь с таким tg_id не найден")
+
     return JSONResponse(
         status_code=200,
-        content={"message": "Чат создан", "chat_id": new_chat.id},
+        content={"message": "Чат создан", "chat_id": new_chat.id, "project_id": new_chat.project_id},
         media_type="application/json; charset=utf-8"
     )
+
 
 @router.get("/chats/{tg_id}")
 async def get_chats(tg_id: int, session: AsyncSession = Depends(get_session)):

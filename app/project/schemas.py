@@ -6,7 +6,11 @@ from pydantic import BaseModel
 
 class ProjectCreate(BaseModel):
     title: str
-    vector_store_id: Optional[int] = None
+    user_id: int
+
+
+class ProjectUpdate(BaseModel):
+    title: str
 
 
 class ProjectOut(BaseModel):
@@ -14,5 +18,6 @@ class ProjectOut(BaseModel):
     title: str
     vector_store_id: Optional[int] = None
     created_at: datetime
+    user_id: int
 
     model_config = {"from_attributes": True}

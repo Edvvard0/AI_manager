@@ -23,7 +23,13 @@ class ChatDAO(BaseDAO):
         return result.scalars().all()
 
     @classmethod
-    async def create_chat_by_tg_id(cls, session: AsyncSession, tg_id: int, title: str):
+    async def create_chat_by_tg_id(
+            cls,
+            session: AsyncSession,
+            tg_id: int,
+            title: str,
+            project_id: int | None = None
+    ):
         # Ищем пользователя по tg_id
         user_query = select(User).where(User.tg_id == tg_id)
         user_result = await session.execute(user_query)
@@ -31,7 +37,7 @@ class ChatDAO(BaseDAO):
         if not user:
             return None  # пользователь не найден
 
-        new_chat = Chat(user_id=user.id, title=title)
+        new_chat = Chat(user_id=user.id, title=title, project_id=project_id)
         session.add(new_chat)
         await session.commit()
         await session.refresh(new_chat)

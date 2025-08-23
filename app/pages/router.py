@@ -3,7 +3,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
-from app.chat_gpt.router import token_info, create_messages_with_add_task, get_all_chats, get_all_chats_test
+from app.chat_gpt.router import token_info, create_messages_with_add_task, get_all_chats
 
 from app.chat_gpt.router import get_messages
 from app.tasks.router import get_all_tasks, get_task_by_id
@@ -83,15 +83,15 @@ async def current_task_page(request: Request,
     })
 
 
-@router.get("/task_update/{task_id}", response_class=HTMLResponse)
-async def task_update_page(request: Request,
-                     task = Depends(get_task_by_id),
-                     executors = Depends(get_worker),
-                     chats = Depends(get_all_chats_test)):
-    return templates.TemplateResponse("pages/task_update.html", {
-        "request": request,
-        "task": task,
-        "executors": executors,
-        "chats": chats
-    })
+# @router.get("/task_update/{task_id}", response_class=HTMLResponse)
+# async def task_update_page(request: Request,
+#                      task = Depends(get_task_by_id),
+#                      executors = Depends(get_worker),
+#                      chats = Depends(get_all_chats_test)):
+#     return templates.TemplateResponse("pages/task_update.html", {
+#         "request": request,
+#         "task": task,
+#         "executors": executors,
+#         "chats": chats
+#     })
 
