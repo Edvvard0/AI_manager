@@ -149,5 +149,5 @@ async def create_response_gpt(session: SessionDep, text: str, chat_id: int):
 
             return  response.output_text
 
-    print(response.output_text)
+    # print(response.output_text)
     return response.output_text
