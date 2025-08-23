@@ -1,14 +1,11 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
-from app.chat_gpt.dao import ChatDAO
 from app.chat_gpt.router import token_info, create_messages_with_add_task, get_all_chats, get_all_chats_test
 
 from app.chat_gpt.router import get_messages
-from app.database import get_session
 from app.tasks.router import get_all_tasks, get_task_by_id
 from app.users.router import get_worker
 

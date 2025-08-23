@@ -1,9 +1,6 @@
-import asyncio
 
-from fastapi.params import Depends
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.dao.base import BaseDAO
 from app.users.models import User

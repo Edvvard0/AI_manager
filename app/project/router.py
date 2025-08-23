@@ -2,7 +2,7 @@ from fastapi import APIRouter
 
 from app.database import SessionDep
 from app.project.dao import ProjectDAO
-from app.project.schemas import ProjectCreate, ProjectOut
+from app.project.schemas import ProjectCreate
 
 router = APIRouter(prefix="/projects",
                    tags=["Projects"])

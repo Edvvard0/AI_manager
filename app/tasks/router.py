@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
-from datetime import date
+from typing import List
 
 from app.bot.create_bot import send_task_user
 from app.database import get_session, SessionDep

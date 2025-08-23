@@ -1,7 +1,6 @@
 from typing import List
 
-from sqlalchemy import select, func, text, cast, REAL
-from sqlalchemy.dialects.postgresql import plainto_tsquery
+from sqlalchemy import select, func, cast, REAL
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -32,12 +31,13 @@ class TaskDAO(BaseDAO):
         return new_task
 
     @classmethod
-    async def find_all(cls, session: AsyncSession):
+    async def find_all(cls, session: AsyncSession,  **filter_by):
         result = await session.execute(
             select(Task)
+            .filter_by(**filter_by)
             .options(
                 joinedload(Task.executor),  # подгрузим исполнителя
-                joinedload(Task.chats)      # подгрузим чат
+                joinedload(Task.project)      # подгрузим чат
             )
         )
         return result.scalars().all()
@@ -49,7 +49,7 @@ class TaskDAO(BaseDAO):
             .where(Task.id == task_id)
             .options(
                 joinedload(Task.executor),  # подгрузим исполнителя
-                joinedload(Task.chats)      # подгрузим чат
+                joinedload(Task.project)      # подгрузим чат
             )
         )
         return result.scalar_one_or_none()

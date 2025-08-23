@@ -1,4 +1,3 @@
-from email.policy import default
 
 from aiogram import Router, F
 from aiogram.filters import CommandStart
@@ -7,12 +6,12 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.types import Message, CallbackQuery
 from sqlalchemy import select
 
-from app.bot.create_bot import send_task_admin, bot
+from app.bot.create_bot import send_task_admin
 from app.bot.handlers.send_file import send_file
 from app.users.dao import UserDAO
 from app.tasks.dao import TaskDAO
-from app.bot.keyboards.kbs import main_keyboard, new_status_keyboard, change_keyboard, persistent_main_keyboard
-from app.database import connection, SessionDep, async_session_maker
+from app.bot.keyboards.kbs import new_status_keyboard, change_keyboard, persistent_main_keyboard
+from app.database import connection, async_session_maker
 from app.users.models import User
 
 router = Router()

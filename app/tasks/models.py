@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import BigInteger, ForeignKey, Index
+from sqlalchemy import ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_utils import TSVectorType
 
@@ -28,6 +28,8 @@ class Task(Base):
     status: Mapped[str]
     comment: Mapped[Optional[str]] = mapped_column(nullable=True)
     file_path: Mapped[Optional[str]] = mapped_column(nullable=True)
+
+    tag: Mapped[str] = mapped_column(nullable=True)
 
     executor: Mapped["User"] = relationship(back_populates="tasks")
     project: Mapped["Project"] = relationship(back_populates="tasks")

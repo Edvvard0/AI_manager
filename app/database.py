@@ -1,10 +1,9 @@
-from datetime import datetime
 from functools import wraps
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import func, TIMESTAMP, Integer, text
-from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase
+from sqlalchemy import text
+from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_engine, AsyncSession
 
 from app.config import database_url

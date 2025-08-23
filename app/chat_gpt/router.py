@@ -6,11 +6,10 @@ from typing import List
 
 from starlette.responses import JSONResponse
 
-from app.chat_gpt.schemas import ChatOut, SMessageAdd, PromptResponse, AnswerResponse, ChatMessageSearchOut
+from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessageSearchOut
 from app.chat_gpt.utils.utils import create_response_gpt
 from app.chat_gpt.utils.utils_file import process_file
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
-from app.config import settings
 from app.database import get_session, SessionDep
 from app.chat_gpt.dao import ChatDAO, MessageDAO, SearchDAO
 
@@ -107,27 +106,6 @@ async def token_info(session: SessionDep):
     return res
 
 
-# @router.post("/ask")
-# async def ask_gpt(session: SessionDep, chat_id: int, prompt: str = Form(...), file: UploadFile = File(...)):
-#     # 1. Загружаем файл в OpenAI
-#     print("file")
-#     vector_store= await create_file(file)
-#
-#     response = await client.responses.create(
-#         model=settings.CHAT_GPT_MODEL,
-#         input=prompt,
-#         tools=[{
-#             "type": "file_search",
-#             "vector_store_ids": [vector_store.id]
-#         }]
-#     )
-#
-#     await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
-#     await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response.output_text)
-#
-#     return {"answer": response.output_text}
-
-
 @router.post("/ask", response_model=AnswerResponse)
 async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile = File(...), prompt: str = Form(...)):
     try:
@@ -158,7 +136,7 @@ async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile =
         )
 
 
-@router.get("/chats-messages", response_model=list[ChatMessageSearchOut])
+@router.get("/search", response_model=list[ChatMessageSearchOut])
 async def search_chats_and_messages(
     q: str,
     session: SessionDep,

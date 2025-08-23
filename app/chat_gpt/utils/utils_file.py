@@ -1,4 +1,3 @@
-import asyncio
 import base64
 import os
 from io import BytesIO
@@ -6,12 +5,8 @@ from io import BytesIO
 import PyPDF2
 import docx
 import openai
-from fastapi import UploadFile
-from openai import OpenAI
-from pydantic import BaseModel
 
 from app.chat_gpt.utils.promts import _is_minutes_analysis, build_minutes_messages
-from app.chat_gpt.utils.utils import client
 from app.config import settings
 
 

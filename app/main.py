@@ -10,7 +10,6 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.bot.create_bot import bot, dp, stop_bot
 from app.bot.handlers.router import router as bot_router
-from app.config import settings
 from app.tasks.router import router as task_router
 from app.chat_gpt.router import router as gpt_router
 from app.pages.router import router as pages_router

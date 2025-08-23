@@ -1,7 +1,7 @@
 
 from http.client import HTTPException
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import UploadFile, HTTPException
 from docx import Document
 
 import os

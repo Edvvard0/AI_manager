@@ -10,6 +10,7 @@ class TaskCreate(BaseModel):
     description: str
     deadline_date: date
     executor_id: Optional[int] = None
+    tag: Optional[str] = None
 
     project_id: Optional[int] = None
 
@@ -38,6 +39,8 @@ class TaskOut(BaseModel):
     status: str
     comment: Optional[str] = None
     file_path: Optional[str] = None
+
+    tag: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

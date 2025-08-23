@@ -3,7 +3,6 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.types import FSInputFile
 from aiogram.exceptions import TelegramBadRequest
-from pathlib import Path
 
 from app.bot.keyboards.kbs import persistent_main_keyboard
 from app.config import settings
@@ -21,7 +20,7 @@ FILES_BASE_DIR = "data_files"
 async def start_bot():
     try:
         for admin_id in settings.ADMIN_IDS:
-            await bot.send_message(admin_id, f'Я запущен🥳.')
+            await bot.send_message(admin_id, 'Я запущен🥳.')
     except:
         pass
 
