@@ -1,8 +1,9 @@
 import json
 import re
+from datetime import date
 
 from openai import AsyncOpenAI
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload
 
 from app.chat_gpt.dao import  MessageDAO
@@ -19,8 +20,24 @@ client = AsyncOpenAI(api_key=settings.CHAT_GPT_API_KEY)
 
 
 async def get_minutes_tasks(session: SessionDep):
-    tasks = await TaskDAO.find_all(session, **{"tag": "пятиминутка"})
-    print(tasks)
+    today = date.today()
+
+    query = (
+        select(Task)
+        .where(
+            and_(
+                Task.tag == "пятиминутка",
+                Task.deadline_date <= today,
+                Task.status != "готово"
+            )
+        )
+        .order_by(Task.deadline_date.asc())
+    )
+
+    result = await session.execute(query)
+    tasks = result.scalars().all()
+
+    # print(tasks)
     if not tasks:
         return "Задач с тегом 'пятиминутка' не найдено."
 

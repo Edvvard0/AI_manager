@@ -3,9 +3,9 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse
 from starlette.templating import Jinja2Templates
 
-from app.chat_gpt.router import token_info, create_messages_with_add_task, get_all_chats
+from app.chat_gpt.router import token_info, get_all_chats
 
-from app.chat_gpt.router import get_messages
+from app.chat_gpt.router import get_messages, create_message
 from app.tasks.router import get_all_tasks, get_task_by_id
 from app.users.router import get_worker
 
@@ -56,7 +56,7 @@ async def token_info(request: Request,
 async def add_tasks_page(request: Request,
                      chat_id: int,
                      executors = Depends(get_worker),
-                     tasks = Depends(create_messages_with_add_task)):
+                     tasks = Depends(create_message)):
     return templates.TemplateResponse("pages/add_tasks.html", {
         "request": request,
         "executors": executors,

@@ -31,6 +31,7 @@ async def stop_bot():
     except:
         pass
 
+
 def _build_task_text(task: TaskCreate) -> str:
     return (
         f"📌 <b>Новая задача</b>\n\n"
@@ -40,6 +41,7 @@ def _build_task_text(task: TaskCreate) -> str:
         f"<b>Статус:</b> {task.status}"
         + (f"\n<b>Комментарий:</b> {task.comment}" if getattr(task, 'comment', None) else "")
     )
+
 
 async def send_task_user(session: SessionDep, new_task: TaskCreate):
     user = await UserDAO.find_one_or_none(session, **{"id": new_task.executor_id})
@@ -51,7 +53,6 @@ async def send_task_user(session: SessionDep, new_task: TaskCreate):
     text = _build_task_text(new_task)
     reply_kb = persistent_main_keyboard()
 
-    # Если файла нет — просто отправляем текст
     file_path_rel = getattr(new_task, "file_path", None)
     if not file_path_rel:
         try:
@@ -60,7 +61,6 @@ async def send_task_user(session: SessionDep, new_task: TaskCreate):
             print(f"Ошибка при отправке уведомления: {e}")
         return
 
-    # Если файл есть — отправляем документ
     abs_path = (FILES_BASE_DIR / file_path_rel).resolve()
 
     # Безопасность: файл должен лежать внутри FILES_BASE_DIR
@@ -68,19 +68,17 @@ async def send_task_user(session: SessionDep, new_task: TaskCreate):
         abs_path.relative_to(FILES_BASE_DIR)
     except ValueError:
         print(f"Небезопасный путь к файлу: {abs_path}")
-        # fallback — просто текст
         await bot.send_message(chat_id=tg_id, text=text, reply_markup=reply_kb)
         return
 
     if not abs_path.exists():
         print(f"Файл не найден: {abs_path}")
-        # fallback — просто текст
         await bot.send_message(chat_id=tg_id, text=text, reply_markup=reply_kb)
         return
 
     try:
         doc = FSInputFile(str(abs_path))
-        # Пробуем отправить документ с caption (до 1024 символов)
+
         caption = text if len(text) <= 1024 else ""
         await bot.send_document(
             chat_id=tg_id,
@@ -88,17 +86,16 @@ async def send_task_user(session: SessionDep, new_task: TaskCreate):
             caption=caption,
             reply_markup=reply_kb
         )
-        # Если caption обрезали из-за лимита — досылаем текст отдельно
+
         if not caption:
             await bot.send_message(chat_id=tg_id, text=text, reply_markup=reply_kb)
     except TelegramBadRequest as e:
-        # На всякий — если не прошёл caption
         print(f"TelegramBadRequest при отправке документа: {e}")
         await bot.send_document(chat_id=tg_id, document=doc, reply_markup=reply_kb)
         await bot.send_message(chat_id=tg_id, text=text, reply_markup=reply_kb)
     except Exception as e:
         print(f"Ошибка при отправке документа: {e}")
-        # fallback — отправляем хотя бы текст
+
         await bot.send_message(chat_id=tg_id, text=text, reply_markup=reply_kb)
 
 async def send_task_admin(session: SessionDep, new_task: TaskCreate):

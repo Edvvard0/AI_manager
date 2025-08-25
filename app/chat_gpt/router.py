@@ -30,11 +30,11 @@ async def get_all_chats(session: AsyncSession = Depends(get_session)):
 
 # @router.get("/chats/all/test")
 # async def get_all_chats_test(session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
+#     """Для отрисовки страниц"""
 #     chats = await ChatDAO.find_all(session)
 #     return chats
 
 
-# Создать новый чат по tg_id
 @router.post("/chats/")
 async def create_chat(
     tg_id: int,
@@ -85,6 +85,10 @@ async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_
     print("message")
     try:
         response = await create_response_gpt(session=session, chat_id=data.chat_id, text=data.content)
+
+        if "РАСПРЕДЕЛИ ЗАДАЧИ" in data.content:
+            return response
+
         text = response if isinstance(response, str) else response.get("message") or str(response)
 
         await MessageDAO.add(session, chat_id=data.chat_id, is_user=True, content=data.content)
@@ -97,15 +101,15 @@ async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_
 
 
 
-@router.post("/messages_with_add_task/{chat_id}")
-async def create_messages_with_add_task(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
-    print("message task")
-    try:
-        tasks = await create_response_gpt(session=session, chat_id=chat_id, text=content)
-    except Exception as e:
-        return f"произошла ошибка {e}"
-
-    return tasks
+# @router.post("/messages_with_add_task/{chat_id}")
+# async def create_messages_with_add_task(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
+#     print("message task")
+#     try:
+#         tasks = await create_response_gpt(session=session, chat_id=chat_id, text=content)
+#     except Exception as e:
+#         return f"произошла ошибка {e}"
+#
+#     return tasks
 
 @router.get("/token_info/")
 async def token_info(session: SessionDep):

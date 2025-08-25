@@ -98,13 +98,7 @@ class MessageDAO(BaseDAO):
 class SearchDAO:
     @classmethod
     async def search_chats_and_messages(cls, session: AsyncSession, query: str):
-        """
-        Полнотекстовый/триграммный поиск:
-        - по названию чата
-        - по содержимому сообщений (всех: и user, и GPT)
-        """
-
-        await session.execute(select(func.set_limit(cast(0.1, REAL))))  # снижаем лимит
+        await session.execute(select(func.set_limit(cast(0.05, REAL))))
 
         stmt = (
             select(
