@@ -1,5 +1,7 @@
+import asyncio
+
 import openai
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, Form, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, Form, File, Body
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
@@ -7,8 +9,10 @@ from typing import List
 from starlette.responses import JSONResponse
 
 from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessageSearchOut, SFirstMessage
+from app.chat_gpt.utils.promts import SYSTEM_MD
 from app.chat_gpt.utils.utils import create_response_gpt, client
 from app.chat_gpt.utils.utils_file import process_file
+from app.chat_gpt.utils.utils_message import first_message
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
 from app.config import settings
 from app.database import get_session, SessionDep
@@ -80,6 +84,7 @@ async def get_messages(chat_id: int, session: AsyncSession = Depends(get_session
         for msg in messages
     ]
 
+#-------------------
 
 @router.post("/first_messages/")
 async def create_message(data: SFirstMessage, session: SessionDep):
@@ -111,6 +116,8 @@ async def create_message(data: SFirstMessage, session: SessionDep):
         return {"error": f"произошла ошибка: {e}"}
 
 
+
+#-------------------
 @router.post("/messages/")
 async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_session)):
     print("message")
@@ -131,7 +138,7 @@ async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_
         return {"error": f"произошла ошибка: {e}"}
 
 
-
+#-------------------
 @router.post("/messages_with_add_task/{chat_id}")
 async def create_messages_with_add_task(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
     print("message task")
@@ -148,6 +155,7 @@ async def token_info(session: SessionDep):
     return res
 
 
+#-------------------
 @router.post("/ask", response_model=AnswerResponse)
 async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile = File(...), prompt: str = Form(...)):
     try:
@@ -176,6 +184,90 @@ async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile =
             status_code=500,
             content={"error": f"An error occurred: {str(e)}"}
         )
+
+
+
+
+
+
+@router.post("/message_all")
+async def chatgpt_endpoint(
+    session: SessionDep,
+    chat_id: int | None = Body(None),
+    prompt: str = Body(...),
+    project_id: int | None = Body(None),
+    tg_id: int = Body(...),
+    file: UploadFile | None = File(None)   # только если реально отправляют файл
+):
+    # try:
+        if not chat_id:
+            if not project_id:
+                response = await first_message(prompt=prompt,
+                                               tg_id=tg_id,
+                                               session=session)
+            else:
+                response = await first_message(prompt=prompt,
+                                               project_id=project_id,
+                                               tg_id=tg_id,
+                                               session=session)
+
+            # print(response)
+            chat_id = response["chat_id"]
+
+            if not file:
+                await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
+                await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response["message"])
+                await session.commit()
+                return {"message": response}
+
+        if not file:
+            response = await create_response_gpt(session=session, chat_id=chat_id, text=prompt)
+
+            if "РАСПРЕДЕЛИ ЗАДАЧИ" in prompt:
+                return response
+
+            response = response if isinstance(response, str) else response.get("message") or str(response)
+
+            await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
+            await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
+            await session.commit()
+
+            # return {"message": text}
+
+        elif file:
+
+
+            file_content = await file.read()
+            content_type = file.content_type
+            filename = file.filename
+
+            messages = await process_file(file_content, content_type, filename, prompt)
+
+            response = await asyncio.to_thread(
+                openai.chat.completions.create,
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": SYSTEM_MD},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=1000
+            )
+
+            response = response.choices[0].message.content
+
+            await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
+            await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
+            await session.commit()
+
+        return {"message": response}
+
+    # except Exception as e:
+    #     return JSONResponse(
+    #         status_code=500,
+    #         content={"error": f"An error occurred: {str(e)}"}
+    #     )
+
+
 
 
 @router.get("/search", response_model=list[ChatMessageSearchOut])

@@ -7,7 +7,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload
 
 from app.chat_gpt.dao import  MessageDAO
-from app.chat_gpt.utils.promts import SYSTEM_PROMPT
+from app.chat_gpt.utils.promts import SYSTEM_PROMPT, SYSTEM_MD
 
 from app.config import settings
 from app.database import SessionDep
@@ -143,6 +143,7 @@ async def create_response_gpt(session: SessionDep, text: str, chat_id: int):
         })
 
     gpt_input.append({"role": "user", "content": text})
+    gpt_input.append( {"role": "system", "content": SYSTEM_MD})
 
     response = await client.responses.create(
         model=settings.CHAT_GPT_MODEL,
