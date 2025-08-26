@@ -11,6 +11,11 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from app.config import database_url
 from app.database import Base
+from app.tasks.models import Task
+from app.chat_gpt.models import Chat, Message
+from app.project.models import Project
+from app.users.models import User
+
 
 config = context.config
 config.set_main_option("sqlalchemy.url", database_url)

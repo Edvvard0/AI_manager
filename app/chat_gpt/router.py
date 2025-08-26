@@ -6,10 +6,11 @@ from typing import List
 
 from starlette.responses import JSONResponse
 
-from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessageSearchOut
-from app.chat_gpt.utils.utils import create_response_gpt
+from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessageSearchOut, SFirstMessage
+from app.chat_gpt.utils.utils import create_response_gpt, client
 from app.chat_gpt.utils.utils_file import process_file
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
+from app.config import settings
 from app.database import get_session, SessionDep
 from app.chat_gpt.dao import ChatDAO, MessageDAO, SearchDAO
 
@@ -80,6 +81,36 @@ async def get_messages(chat_id: int, session: AsyncSession = Depends(get_session
     ]
 
 
+@router.post("/first_messages/")
+async def create_message(data: SFirstMessage, session: SessionDep):
+    # print("first message")
+    try:
+        response = await client.responses.create(
+            model=settings.CHAT_GPT_MODEL,
+            input=data.content,
+            instructions="сперва придумай короткое название названия этому чату напиши его и после ***, чтобы я понимал где оно заканчивается"
+        )
+        # print(response.output_text)
+        text = response.output_text
+        text = text.replace("Название чата: ", "")
+
+        title = text[:text.find("***")]
+        text = text.replace("***", "")
+        text = text.replace(f"{title}", "")
+
+        chat = await ChatDAO.create_chat_by_tg_id(session, title=title, tg_id=data.tg_id, project_id=data.project_id)
+
+        await MessageDAO.add(session, chat_id=chat.id, is_user=True, content=data.content)
+        await MessageDAO.add(session, chat_id=chat.id, is_user=False, content=text)
+
+        return {"message": text,
+                "chat_id": chat.id,
+                "chat_name": title}
+
+    except Exception as e:
+        return {"error": f"произошла ошибка: {e}"}
+
+
 @router.post("/messages/")
 async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_session)):
     print("message")
@@ -101,15 +132,15 @@ async def create_message(data: SMessageAdd, session: AsyncSession = Depends(get_
 
 
 
-# @router.post("/messages_with_add_task/{chat_id}")
-# async def create_messages_with_add_task(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
-#     print("message task")
-#     try:
-#         tasks = await create_response_gpt(session=session, chat_id=chat_id, text=content)
-#     except Exception as e:
-#         return f"произошла ошибка {e}"
-#
-#     return tasks
+@router.post("/messages_with_add_task/{chat_id}")
+async def create_messages_with_add_task(chat_id: int, content: str, session: AsyncSession = Depends(get_session)):
+    print("message task")
+    try:
+        tasks = await create_response_gpt(session=session, chat_id=chat_id, text=content)
+    except Exception as e:
+        return f"произошла ошибка {e}"
+
+    return tasks
 
 @router.get("/token_info/")
 async def token_info(session: SessionDep):

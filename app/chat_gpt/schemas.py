@@ -15,6 +15,12 @@ class SMessageAdd(BaseModel):
     content: str
 
 
+class SFirstMessage(BaseModel):
+    content: str
+    tg_id: int
+    project_id: Optional[int] = None
+
+
 class STaskAddGPT(BaseModel):
     title: str
     description: str

@@ -94,6 +94,14 @@ class MessageDAO(BaseDAO):
         result = await session.execute(query)
         return list(result.scalars().all())
 
+    @classmethod
+    async def add(cls, session: AsyncSession, **values):
+        new_instance = cls.model(**values)
+        session.add(new_instance)
+        await session.flush()  # Только flush, без commit
+        await session.refresh(new_instance)  # Обновляем объект чтобы получить ID
+        return new_instance
+
 
 class SearchDAO:
     @classmethod
