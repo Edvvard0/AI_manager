@@ -166,6 +166,4 @@ async def create_response_gpt(session: SessionDep, text: str, chat_id: int):
             print(f"GPT output was:\n{response}")
 
             return  response.output_text
-
-    # print(response.output_text)
     return response.output_text

@@ -6,7 +6,7 @@ import PyPDF2
 import docx
 import openai
 
-from app.chat_gpt.utils.promts import _is_minutes_analysis, build_minutes_messages
+from app.chat_gpt.utils.five_minuts import _is_minutes_analysis, build_minutes_messages, _clip, transcribe_audio
 from app.config import settings
 
 
@@ -80,21 +80,21 @@ async def process_file(file_content: bytes, content_type: str, filename: str, pr
             ]
         })
 
-    elif content_type.startswith('audio/') or file_extension in ['.mp3', '.wav', '.m4a', "m4a"]:
+    elif content_type.startswith('audio/') or file_extension in ['.mp3', '.wav', '.m4a', '.ogg']:
         audio_file = BytesIO(file_content)
         audio_file.name = filename
+
+        # Расшифровка аудио
         transcription = openai.audio.transcriptions.create(
             model="whisper-1",
             file=audio_file
         )
-
         file_text = transcription.text or ""
 
-        if _is_minutes_analysis(prompt):
-            return build_minutes_messages(file_text)
-
-        full_prompt = f"{prompt}\n\nAudio transcription:\n{file_text}"
+        # Иначе — обычное поведение: подставим транскрипт в пользовательский промпт
+        full_prompt = f"{prompt}\n\nAudio transcription:\n{_clip(file_text)}"
         messages.append({"role": "user", "content": full_prompt})
+        return messages
 
     else:
         # Неизвестный тип: попытка прочитать как текст

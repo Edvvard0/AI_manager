@@ -2,14 +2,18 @@ import asyncio
 
 import openai
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Form, File, Body
+from pydantic import BaseModel
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from starlette.responses import JSONResponse
 
-from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessageSearchOut, SFirstMessage
+from app.bot.create_bot import send_protocol_group
+from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessageSearchOut, SFirstMessage, \
+    MinutesResponse
 from app.chat_gpt.utils.promts import SYSTEM_MD
+from app.chat_gpt.utils.five_minuts import _is_minutes_analysis, transcribe_audio, generate_protocol_from_transcript, _clip
 from app.chat_gpt.utils.utils import create_response_gpt, client
 from app.chat_gpt.utils.utils_file import process_file
 from app.chat_gpt.utils.utils_message import first_message
@@ -235,7 +239,22 @@ async def chatgpt_endpoint(
             # return {"message": text}
 
         elif file:
+            if _is_minutes_analysis(prompt):
+                transcript = await transcribe_audio(file)
+                if not transcript.strip():
+                    raise HTTPException(status_code=422, detail="Расшифровка пуста. Проверьте качество аудио.")
 
+                protocol = await generate_protocol_from_transcript(transcript)
+                await send_protocol_group(protocol)
+
+                return JSONResponse(
+                    status_code=200,
+                    content=MinutesResponse(
+                        protocol=protocol,
+                        detected_command=True,
+                        transcript_preview=_clip(transcript, 600)
+                    ).model_dump()
+                )
 
             file_content = await file.read()
             content_type = file.content_type
@@ -269,6 +288,34 @@ async def chatgpt_endpoint(
 
 
 
+
+
+
+@router.post("/analyze", response_model=MinutesResponse)
+async def analyze_minutes(
+    prompt: str = Form(..., description="Должно содержать ключевую команду АНАЛИЗ ПЯТИМИНУТКИ"),
+    file: UploadFile = File(..., description="Аудиофайл совещания (.mp3/.wav/.m4a/.ogg)")
+):
+    """
+    Отдельный эндпоинт: принимает аудио + команду 'АНАЛИЗ ПЯТИМИНУТКИ', возвращает протокол по жёсткому шаблону.
+    """
+    if not _is_minutes_analysis(prompt):
+        raise HTTPException(status_code=400, detail="В prompt должна быть команда 'АНАЛИЗ ПЯТИМИНУТКИ'.")
+
+    transcript = await transcribe_audio(file)
+    if not transcript.strip():
+        raise HTTPException(status_code=422, detail="Расшифровка пуста. Проверьте качество аудио.")
+
+    protocol = await generate_protocol_from_transcript(transcript)
+
+    return JSONResponse(
+        status_code=200,
+        content=MinutesResponse(
+            protocol=protocol,
+            detected_command=True,
+            transcript_preview=_clip(transcript, 600)
+        ).model_dump()
+    )
 
 @router.get("/search", response_model=list[ChatMessageSearchOut])
 async def search_chats_and_messages(

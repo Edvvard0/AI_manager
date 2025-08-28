@@ -49,3 +49,9 @@ class ChatSearchResult(BaseModel):
     message_id: Optional[int] = None
     message_content: Optional[str] = None
     rank: float
+
+
+class MinutesResponse(BaseModel):
+    protocol: str
+    detected_command: bool
+    transcript_preview: str

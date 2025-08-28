@@ -1,3 +1,6 @@
+import asyncio
+
+import httpx
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -120,3 +123,39 @@ async def send_task_admin(session: SessionDep, new_task: TaskCreate):
         )
     except Exception as e:
         print(f"Ошибка при отправке уведомления: {e}")
+
+
+async def send_protocol_group(protocol: str, parse_mode="Markdown"):
+    TELEGRAM_BOT_TOKEN = settings.BOT_TOKEN
+    BASE_URL = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}"
+
+    """
+            Отправляет сообщение в группу Telegram.
+
+            :param chat_id: ID группы (отрицательное число) или @username группы/канала.
+            :param text: текст сообщения
+            :param parse_mode: "HTML" или "MarkdownV2"
+            :return: dict (ответ от Telegram API)
+            """
+    url = f"{BASE_URL}/sendMessage"
+    payload = {
+        "chat_id": -4947572362,
+        "text": protocol,
+    }
+    if parse_mode:
+        payload["parse_mode"] = parse_mode
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        resp = await client.post(url, json=payload)
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError:
+            # ← СМОТРИМ ПРИЧИНУ ОТ TG
+            try:
+                print("Telegram error:", resp.json())
+            except Exception:
+                print("Telegram error (raw):", resp.text)
+            raise
+        return resp.json()
+#
+# asyncio.run(send_protocol_group("test"))
