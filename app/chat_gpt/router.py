@@ -17,6 +17,7 @@ from starlette.responses import JSONResponse, FileResponse
 from app.bot.create_bot import send_protocol_group
 from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessageSearchOut, SFirstMessage, \
     MinutesResponse
+from app.chat_gpt.utils.export_chats import main
 from app.chat_gpt.utils.promts import SYSTEM_MD
 from app.chat_gpt.utils.five_minuts import _is_minutes_analysis, transcribe_audio, generate_protocol_from_transcript, _clip
 from app.chat_gpt.utils.utils import create_response_gpt, client
@@ -362,6 +363,12 @@ async def get_file(file_path: str):
         raise HTTPException(status_code=403, detail="Нет доступа к файлу")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при чтении файла: {str(e)}")
+
+
+@router.post("/test")
+async def export_chats(session: SessionDep):
+    await main(session=session, file_path=r"data_files\file_export\chat.html")
+    return {"message": "chats export"}
 
 
 @router.delete("/{chat_id}")

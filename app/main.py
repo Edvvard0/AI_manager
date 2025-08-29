@@ -10,6 +10,8 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.bot.create_bot import bot, dp, stop_bot
 from app.bot.handlers.router import router as bot_router
+from app.bot.handlers.export_router import export_router
+
 from app.tasks.router import router as task_router
 from app.chat_gpt.router import router as gpt_router
 from app.pages.router import router as pages_router
@@ -23,6 +25,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 async def lifespan(app: FastAPI):
     logging.info("Starting bot setup...")
     dp.include_router(bot_router)
+    dp.include_router(export_router)
 
     # Запускаем polling в отдельной асинхронной задаче
     asyncio.create_task(dp.start_polling(bot))

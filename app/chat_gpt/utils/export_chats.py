@@ -1,6 +1,11 @@
+import asyncio
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from app.chat_gpt.dao import ChatDAO, MessageDAO
+from app.database import SessionDep, get_session, async_session_maker
+
 
 def _extract_json_from_chat_html(html_text: str, html_path: Optional[Path] = None) -> List[Dict[str, Any]]:
     """
@@ -108,17 +113,28 @@ def _iter_messages(conversation: Dict[str, Any]) -> List[Dict[str, Any]]:
         items.append({"role": role, "text": text})
     return items
 
-# --- основной блок ---
-if __name__ == "__main__":
-    p = Path(r"F:\my_projects\ai_assistant\data_files\file_export\chat.html")  # твой путь
+
+async def main(session: SessionDep, file_path: str):
+    # p = Path(r"data_files\file_export\chat.html")
+    p = Path(rf"{file_path}")# твой путь
     html_text = p.read_text(encoding="utf-8", errors="ignore")
     conversations = _extract_json_from_chat_html(html_text, html_path=p)
     print("Всего чатов:", len(conversations))
 
     for conv in conversations:
         title = conv.get("title", "Без названия")
-        print(f"\n=== Чат: {title} ===")
+
+        tg_id = 5254325840
+        new_chat = await ChatDAO.create_chat_by_tg_id(session=session, tg_id=tg_id, title=title, project_id=None)
+
+        # print(f"\n=== Чат: {title} ===")
         msgs = _iter_messages(conv)
         for m in msgs:
-            role = "Пользователь" if m["role"] == "user" else "Нейросеть"
-            print(f"{role}: {m['text']}")
+            role = True if m["role"] == "user" else False
+            await MessageDAO.add(session, chat_id=new_chat.id, is_user=role, content=m['text'])
+            # print(f"{role}: {m['text'][:50]}")
+
+
+# --- основной блок ---
+if __name__ == "__main__":
+    asyncio.run(main())

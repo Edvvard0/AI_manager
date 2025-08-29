@@ -15,6 +15,7 @@ from app.tasks.schemas import TaskCreate
 from app.users.dao import UserDAO
 
 bot = Bot(token=settings.BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+
 dp = Dispatcher()
 
 # БАЗОВАЯ ДИРЕКТОРИЯ, где лежат файлы задач (можешь вынести в settings)
