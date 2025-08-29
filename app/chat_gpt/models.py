@@ -34,4 +34,6 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    file_path: Mapped[str] = mapped_column(nullable=True, default=None)
+
     chat: Mapped["Chat"] = relationship(back_populates="messages")

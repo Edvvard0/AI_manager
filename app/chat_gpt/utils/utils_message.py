@@ -19,7 +19,7 @@ async def first_message(prompt: str,
             instructions="сперва придумай короткое название названия этому чату напиши его и после ***, \
             чтобы я понимал где оно заканчивается, первая строка должна быть без markdown, в названии чата тоже не должно ничего упоминуться о markdown, ты должен сосредоточиться на сути вопроса"
         )
-        print(response.output_text)
+        # print(response.output_text)
         text = response.output_text
         parts = text.split("***", 1)
 

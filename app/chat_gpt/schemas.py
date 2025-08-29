@@ -48,10 +48,10 @@ class ChatSearchResult(BaseModel):
     chat_title: str
     message_id: Optional[int] = None
     message_content: Optional[str] = None
-    rank: float
+    # rank: float
 
 
 class MinutesResponse(BaseModel):
     protocol: str
-    detected_command: bool
-    transcript_preview: str
+    # detected_command: bool
+    # transcript_preview: str

@@ -1,13 +1,18 @@
 import asyncio
+import os
+import uuid
+from pathlib import Path
 
+import aiofiles
 import openai
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, Form, File, Body
+from multipart import file_path
 from pydantic import BaseModel
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, FileResponse
 
 from app.bot.create_bot import send_protocol_group
 from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessageSearchOut, SFirstMessage, \
@@ -83,7 +88,8 @@ async def get_messages(chat_id: int, session: AsyncSession = Depends(get_session
             "id": msg.id,
             "is_user": msg.is_user,
             "content": msg.content,
-            "created_at": msg.created_at
+            "created_at": msg.created_at,
+            "file_path": msg.file_path
         }
         for msg in messages
     ]
@@ -239,6 +245,15 @@ async def chatgpt_endpoint(
             # return {"message": text}
 
         elif file:
+            directory = "data_files/chat_files"
+            os.makedirs(directory, exist_ok=True)  # Создаем директорию, если не существует
+            unique_filename = f"{uuid.uuid4()}_{file.filename}"  # Уникальное имя
+            file_path = os.path.join(directory, unique_filename)
+
+            async with aiofiles.open(file_path, 'wb') as out_file:
+                content = await file.read()
+                await out_file.write(content)
+
             if _is_minutes_analysis(prompt):
                 transcript = await transcribe_audio(file)
                 if not transcript.strip():
@@ -250,9 +265,7 @@ async def chatgpt_endpoint(
                 return JSONResponse(
                     status_code=200,
                     content=MinutesResponse(
-                        protocol=protocol,
-                        detected_command=True,
-                        transcript_preview=_clip(transcript, 600)
+                        protocol=protocol
                     ).model_dump()
                 )
 
@@ -261,21 +274,18 @@ async def chatgpt_endpoint(
             filename = file.filename
 
             messages = await process_file(file_content, content_type, filename, prompt)
+            messages.append({"role": "system", "content": SYSTEM_MD})
 
-            response = await asyncio.to_thread(
-                openai.chat.completions.create,
+            response = openai.chat.completions.create(
                 model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": SYSTEM_MD},
-                    {"role": "user", "content": prompt}
-                ],
+                messages=messages,
                 max_tokens=1000
             )
 
             response = response.choices[0].message.content
 
-            await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
-            await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
+            await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt, file_path=file_path)
+            await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response, file_path=None)
             await session.commit()
 
         return {"message": response}
@@ -311,9 +321,7 @@ async def analyze_minutes(
     return JSONResponse(
         status_code=200,
         content=MinutesResponse(
-            protocol=protocol,
-            detected_command=True,
-            transcript_preview=_clip(transcript, 600)
+            protocol=protocol
         ).model_dump()
     )
 
@@ -324,6 +332,36 @@ async def search_chats_and_messages(
 ):
     results = await SearchDAO.search_chats_and_messages(session, q)
     return results
+
+
+@router.get("/file/{file_path:path}")
+async def get_file(file_path: str):
+    """
+    Возвращает файл по указанному пути
+    """
+    try:
+        # Создаем объект Path для безопасной работы с путями
+        file_location = Path(file_path)
+
+        # Проверяем, что файл существует
+        if not file_location.exists():
+            raise HTTPException(status_code=404, detail="Файл не найден")
+
+        # Проверяем, что это файл, а не директория
+        if not file_location.is_file():
+            raise HTTPException(status_code=400, detail="Указанный путь ведет к директории, а не к файлу")
+
+        # Возвращаем файл с правильным content-type
+        return FileResponse(
+            path=file_location,
+            filename=file_location.name,
+            media_type="application/octet-stream"
+        )
+
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Нет доступа к файлу")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка при чтении файла: {str(e)}")
 
 
 @router.delete("/{chat_id}")
