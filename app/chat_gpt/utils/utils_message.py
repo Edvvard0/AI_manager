@@ -12,7 +12,7 @@ async def first_message(prompt: str,
                         tg_id: int,
                         session: AsyncSession,
                         project_id: int | None = None,):
-    # try:
+    try:
         response = await client.responses.create(
             model=settings.CHAT_GPT_MODEL,
             input=f"{SYSTEM_MD}  {prompt}",
@@ -36,5 +36,5 @@ async def first_message(prompt: str,
                 "chat_id": chat.id,
                 "chat_name": title}
 
-    # except Exception as e:
-    #     return {"error": f"произошла ошибка: {e}"}
+    except Exception as e:
+        return {"error": f"произошла ошибка: {e}"}

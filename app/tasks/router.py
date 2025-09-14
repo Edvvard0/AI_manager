@@ -70,9 +70,9 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_sessi
 
 
 # Получить все задачи конкретного пользователя
-@router.get("/user/{user_id}", response_model=List[TaskOut])
-async def get_tasks_for_user(user_id: int, session: AsyncSession = Depends(get_session)):
-    tasks = await TaskDAO.find_all_by_user_id(session, user_id)
+@router.get("/user/{tg_id}")
+async def get_tasks_for_user(tg_id: int, session: AsyncSession = Depends(get_session)):
+    tasks = await TaskDAO.find_task_by_tg_id(session, **{"tg_id": tg_id })
     return tasks
 
 

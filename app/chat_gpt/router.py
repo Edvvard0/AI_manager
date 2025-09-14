@@ -72,7 +72,7 @@ async def create_chat(
 @router.get("/chats/{tg_id}")
 async def get_chats(tg_id: int, session: AsyncSession = Depends(get_session)):
     chats = await ChatDAO.get_chats_by_tg_id(session, tg_id)
-    chats_list = [{"id": c.id, "title": c.title, "user_id": c.user_id} for c in chats]
+    chats_list = [{"id": c.id, "title": c.title, "user_id": c.user_id, "project_id": c.project_id} for c in chats]
 
     return JSONResponse(
         status_code=200,
@@ -210,7 +210,7 @@ async def chatgpt_endpoint(
     tg_id: int = Body(...),
     file: UploadFile | None = File(None)   # только если реально отправляют файл
 ):
-    # try:
+    try:
         if not chat_id:
             if not project_id:
                 response = await first_message(prompt=prompt,
@@ -235,6 +235,7 @@ async def chatgpt_endpoint(
             response = await create_response_gpt(session=session, chat_id=chat_id, text=prompt)
 
             if "РАСПРЕДЕЛИ ЗАДАЧИ" in prompt:
+                # print("РАСПРЕДЕЛИ ЗАДАЧИ")
                 return response
 
             response = response if isinstance(response, str) else response.get("message") or str(response)
@@ -246,14 +247,14 @@ async def chatgpt_endpoint(
             # return {"message": text}
 
         elif file:
-            directory = "data_files/chat_files"
-            os.makedirs(directory, exist_ok=True)  # Создаем директорию, если не существует
-            unique_filename = f"{uuid.uuid4()}_{file.filename}"  # Уникальное имя
-            file_path = os.path.join(directory, unique_filename)
+            # directory = "data_files/chat_files"
+            # os.makedirs(directory, exist_ok=True)  # Создаем директорию, если не существует
+            # unique_filename = f"{uuid.uuid4()}_{file.filename}"  # Уникальное имя
+            # file_path = os.path.join(directory, unique_filename)
 
-            async with aiofiles.open(file_path, 'wb') as out_file:
-                content = await file.read()
-                await out_file.write(content)
+            # async with aiofiles.open(file_path, 'wb') as out_file:
+            #     content = await file.read()
+            #     await out_file.write(content)
 
             if _is_minutes_analysis(prompt):
                 transcript = await transcribe_audio(file)
@@ -284,18 +285,19 @@ async def chatgpt_endpoint(
             )
 
             response = response.choices[0].message.content
-
+            
+            file_path = f"data_files/chat_files/{filename}"
             await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt, file_path=file_path)
             await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response, file_path=None)
             await session.commit()
 
         return {"message": response}
 
-    # except Exception as e:
-    #     return JSONResponse(
-    #         status_code=500,
-    #         content={"error": f"An error occurred: {str(e)}"}
-    #     )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"An error occurred: {str(e)}"}
+        )
 
 
 
@@ -363,12 +365,6 @@ async def get_file(file_path: str):
         raise HTTPException(status_code=403, detail="Нет доступа к файлу")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка при чтении файла: {str(e)}")
-
-
-@router.post("/test")
-async def export_chats(session: SessionDep):
-    await main(session=session, file_path=r"data_files\file_export\chat.html")
-    return {"message": "chats export"}
 
 
 @router.delete("/{chat_id}")

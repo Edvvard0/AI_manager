@@ -105,3 +105,17 @@ class TaskDAO(BaseDAO):
 
         result = await session.execute(stmt)
         return result.scalars().all()
+
+
+    @classmethod
+    async def find_task_by_tg_id(cls, session: AsyncSession, **filter_by):
+        result = await session.execute(
+            select(Task)
+            .join(Task.executor)  # связываем с таблицей User (или как она у тебя называется)
+            .filter_by(**filter_by)  # сюда попадёт tg_id
+            .options(
+                joinedload(Task.executor),
+                joinedload(Task.project)
+            )
+        )
+        return result.scalars().all()

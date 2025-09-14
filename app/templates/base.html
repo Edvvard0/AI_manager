@@ -217,6 +217,7 @@
             menuButton.addEventListener('click', () => {
                 sidebar.classList.add('open');
                 const userId = window.Telegram.WebApp.initDataUnsafe?.user?.id || localStorage.getItem('userId');
+                alert(userId);
                 if (userId) {
                     fetchChats(userId);
                 }
