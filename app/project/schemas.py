@@ -5,8 +5,11 @@ from pydantic import BaseModel
 
 
 class ProjectCreate(BaseModel):
+    """
+    Создание проекта по tg_id пользователя.
+    """
     title: str
-    user_id: int
+    tg_id: int
 
 
 class ProjectUpdate(BaseModel):
@@ -20,4 +23,5 @@ class ProjectOut(BaseModel):
     created_at: datetime
     user_id: int
 
+    # Pydantic v2: разрешаем брать данные из ORM-объектов
     model_config = {"from_attributes": True}
