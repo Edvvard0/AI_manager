@@ -197,8 +197,24 @@ async def chatgpt_endpoint(session: SessionDep, chat_id: int, file: UploadFile =
         )
 
 
-
-
+def _serialize_message(msg) -> dict:
+    """Безопасная сериализация созданного сообщения."""
+    # поддержка как ORM-объекта, так и pydantic-модели/словаря
+    if isinstance(msg, dict):
+        return {
+            "id":            msg.get("id"),
+            "is_user":       msg.get("is_user"),
+            "content":       msg.get("content"),
+            "created_at":    msg.get("created_at"),
+            "file_path":     msg.get("file_path"),
+        }
+    return {
+        "id":            getattr(msg, "id", None),
+        "is_user":       getattr(msg, "is_user", None),
+        "content":       getattr(msg, "content", None),
+        "created_at":    getattr(msg, "created_at", None),
+        "file_path":     getattr(msg, "file_path", None),
+    }
 
 
 @router.post("/message_all")
@@ -224,12 +240,18 @@ async def chatgpt_endpoint(
 
             # print(response)
             chat_id = response["chat_id"]
+            chat_name = response["chat_name"]
+            # new_chat_meta = {"chat_id": response["chat_id"], "chat_name": response["chat_name"]}
 
             if not file:
                 await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
-                await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response["message"])
+                assistant_msg = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response["message"])
                 await session.commit()
-                return {"message": response}
+                #
+                # print(assistant_msg)
+                # assistant_msg.update(new_chat_meta)
+                assistant_msg["chat_id"] = chat_id
+                return {"message": assistant_msg}
 
         if not file:
             response = await create_response_gpt(session=session, chat_id=chat_id, text=prompt)
@@ -241,7 +263,7 @@ async def chatgpt_endpoint(
             response = response if isinstance(response, str) else response.get("message") or str(response)
 
             await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
-            await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
+            response = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
             await session.commit()
 
             # return {"message": text}
@@ -288,9 +310,10 @@ async def chatgpt_endpoint(
             
             file_path = f"data_files/chat_files/{filename}"
             await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt, file_path=file_path)
-            await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response, file_path=None)
+            response = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response, file_path=None)
             await session.commit()
 
+        response["chat_id"] = chat_id
         return {"message": response}
 
     except Exception as e:

@@ -100,7 +100,18 @@ class MessageDAO(BaseDAO):
         session.add(new_instance)
         await session.flush()  # Только flush, без commit
         await session.refresh(new_instance)  # Обновляем объект чтобы получить ID
-        return new_instance
+        return {
+            "id": new_instance.id,
+            "is_user": new_instance.is_user,
+            "content": new_instance.content,
+            "created_at": (
+                new_instance.created_at.isoformat()
+                if isinstance(new_instance.created_at, datetime) and new_instance.created_at
+                else None
+            ),
+            "file_path": new_instance.file_path,
+            "chat_id": new_instance.chat_id
+        }
 
 
 class SearchDAO:

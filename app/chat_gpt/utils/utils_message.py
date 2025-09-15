@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.chat_gpt.dao import MessageDAO, ChatDAO
@@ -6,13 +7,14 @@ from app.chat_gpt.utils.promts import SYSTEM_MD
 from app.chat_gpt.utils.utils import client
 from app.config import settings
 from app.database import SessionDep
+from app.users.dao import UserDAO
 
 
 async def first_message(prompt: str,
                         tg_id: int,
                         session: AsyncSession,
                         project_id: int | None = None,):
-    try:
+    # try:
         response = await client.responses.create(
             model=settings.CHAT_GPT_MODEL,
             input=f"{SYSTEM_MD}  {prompt}",
@@ -26,6 +28,10 @@ async def first_message(prompt: str,
         title = parts[0].strip().replace("\n", " ")
         text = parts[1].strip() if len(parts) > 1 else ""
 
+        user = await UserDAO.find_one_or_none(session, tg_id=tg_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
         chat = await ChatDAO.create_chat_by_tg_id(session, title=title, tg_id=tg_id, project_id=project_id)
         # print(chat)
 
@@ -35,6 +41,6 @@ async def first_message(prompt: str,
         return {"message": text,
                 "chat_id": chat.id,
                 "chat_name": title}
-
-    except Exception as e:
-        return {"error": f"произошла ошибка: {e}"}
+    #
+    # except Exception as e:
+    #     return {"error": f"произошла ошибка: {e}"}
