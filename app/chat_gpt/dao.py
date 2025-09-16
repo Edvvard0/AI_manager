@@ -17,6 +17,7 @@ class ChatDAO(BaseDAO):
             select(Chat)
             .join(User, Chat.user_id == User.id)
             .where(User.tg_id == tg_id)
+            .where(Chat.project_id == None)
             .order_by(desc(Chat.created_at))
         )
         result = await session.execute(query)
