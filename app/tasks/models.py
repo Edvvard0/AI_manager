@@ -17,12 +17,12 @@ class Task(Base):
     deadline_date: Mapped[date]
 
     executor_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=False
     )
 
     # связь только с проектом
     project_id: Mapped[int] = mapped_column(
-        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=True
     )
 
     status: Mapped[str]

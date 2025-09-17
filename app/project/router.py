@@ -50,7 +50,7 @@ async def get_project_chats(project_id: int, session: SessionDep):
     try:
         chats = await ProjectDAO.get_chats(session, project_id)
         if not chats:
-            raise HTTPException(status_code=404, detail="Chats not found")
+            return []
         return chats
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
