@@ -2,6 +2,7 @@ import asyncio
 import os
 import uuid
 from pathlib import Path
+from urllib.parse import quote
 
 import aiofiles
 import openai
@@ -41,13 +42,6 @@ async def get_all_chats(session: AsyncSession = Depends(get_session)):
         content=chats_list,
         media_type="application/json; charset=utf-8"
     )
-
-
-# @router.get("/chats/all/test")
-# async def get_all_chats_test(session: AsyncSession = Depends(get_session)) -> list[ChatOut]:
-#     """Для отрисовки страниц"""
-#     chats = await ChatDAO.find_all(session)
-#     return chats
 
 
 @router.post("/chats/")
@@ -336,8 +330,12 @@ async def chatgpt_endpoint(
                 max_tokens=1000
             )
 
+            public_base = "https://ai-meneger-edward0076.amvera.io"  # например, https://ai-meneger-edward0076.amvera.io
+            relative_path = f"data_files/chat_files/{unique_filename}"
+            download_url = f"{public_base}/chat_gpt/file/{quote(relative_path, safe='')}"
+
             model_text = response.choices[0].message.content
-            await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt, file_path=file_path)
+            await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt, file_path=download_url)
 
             assistant_msg = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=model_text,
                                                  file_path=None)
@@ -345,7 +343,7 @@ async def chatgpt_endpoint(
             await session.commit()
 
             assistant_msg["chat_id"] = chat_id
-            assistant_msg["file_path"] = file_path
+            assistant_msg["file_path"] = download_url
 
             return {"message": assistant_msg}
 
