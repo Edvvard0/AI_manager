@@ -20,7 +20,7 @@ from app.chat_gpt.schemas import ChatOut, SMessageAdd, AnswerResponse, ChatMessa
 from app.chat_gpt.utils.export_chats import main
 from app.chat_gpt.utils.promts import SYSTEM_MD
 from app.chat_gpt.utils.five_minuts import _is_minutes_analysis, transcribe_audio, generate_protocol_from_transcript, _clip
-from app.chat_gpt.utils.utils import create_response_gpt, client
+from app.chat_gpt.utils.utils import create_response_gpt, client, extract_json_array, check_keywords
 from app.chat_gpt.utils.utils_file import process_file
 from app.chat_gpt.utils.utils_message import first_message
 from app.chat_gpt.utils.utils_token import calculate_daily_usage
@@ -224,80 +224,110 @@ async def chatgpt_endpoint(
     prompt: str = Body(...),
     project_id: int | None = Body(None),
     tg_id: int = Body(...),
-    file: UploadFile | None = File(None)   # только если реально отправляют файл
+    file: UploadFile | None = File(None)
 ):
     try:
-        if not chat_id:
-            if not project_id:
-                response = await first_message(prompt=prompt,
-                                               tg_id=tg_id,
-                                               session=session)
-            else:
-                response = await first_message(prompt=prompt,
-                                               project_id=project_id,
-                                               tg_id=tg_id,
-                                               session=session)
+        mode = check_keywords(prompt)
 
-            # print(response)
+        # --- ВСЕГДА ОБРАБАТЫВАЕМ РАСПРЕДЕЛЕНИЕ ОТДЕЛЬНО ---
+        if mode == "distribute":
+            # если чата нет — сначала создаём его, НО не возвращаем первый ответ
+            if not chat_id:
+                if project_id:
+                    first = await first_message(prompt=prompt, project_id=project_id, tg_id=tg_id, session=session)
+                else:
+                    first = await first_message(prompt=prompt, tg_id=tg_id, session=session)
+                chat_id = first["chat_id"]
+
+            # выполняем распределение (project_id может быть None → все задачи)
+            result = await create_response_gpt(session=session, text=prompt, chat_id=chat_id, project_id=project_id)
+
+            # результат должен быть JSON-массивом
+            if isinstance(result, list):
+                return result
+            if isinstance(result, str):
+                arr = extract_json_array(result)
+                if arr is not None:
+                    return arr
+                raise HTTPException(status_code=422, detail="Модель вернула невалидный JSON для распределения задач.")
+            # на всякий случай
+            raise HTTPException(status_code=422, detail="Ожидался JSON-массив задач.")
+
+        # --- ОСТАЛЬНЫЕ СЛУЧАИ (как раньше) ---
+        if not chat_id:
+            if project_id:
+                response = await first_message(prompt=prompt, project_id=project_id, tg_id=tg_id, session=session)
+            else:
+                response = await first_message(prompt=prompt, tg_id=tg_id, session=session)
+
             chat_id = response["chat_id"]
-            chat_name = response["chat_name"]
-            # new_chat_meta = {"chat_id": response["chat_id"], "chat_name": response["chat_name"]}
 
             if not file:
                 await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
                 assistant_msg = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response["message"])
                 await session.commit()
-                #
-                # print(assistant_msg)
-                # assistant_msg.update(new_chat_meta)
+
                 assistant_msg["chat_id"] = chat_id
                 return {"message": assistant_msg}
 
         if not file:
-            response = await create_response_gpt(session=session, chat_id=chat_id, text=prompt)
+            response = await create_response_gpt(session=session, chat_id=chat_id, text=prompt, project_id=project_id)
 
-            if "РАСПРЕДЕЛИ ЗАДАЧИ" in prompt:
-                # print("РАСПРЕДЕЛИ ЗАДАЧИ")
-                return response
-
-            response = response if isinstance(response, str) else response.get("message") or str(response)
-
+            # обычная переписка → сохраняем
+            msg_text = response if isinstance(response, str) else (response.get("message") if isinstance(response, dict) else str(response))
             await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt)
-            response = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response)
+            assistant_msg = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=msg_text)
             await session.commit()
 
-            # return {"message": text}
+            assistant_msg["chat_id"] = chat_id
+            return {"message": assistant_msg}
+
 
         elif file:
-            # directory = "data_files/chat_files"
-            # os.makedirs(directory, exist_ok=True)  # Создаем директорию, если не существует
-            # unique_filename = f"{uuid.uuid4()}_{file.filename}"  # Уникальное имя
-            # file_path = os.path.join(directory, unique_filename)
+            file_bytes = await file.read()
 
-            # async with aiofiles.open(file_path, 'wb') as out_file:
-            #     content = await file.read()
-            #     await out_file.write(content)
+            if not file_bytes:
+                raise HTTPException(status_code=400, detail="Файл пуст или не был передан.")
+            directory = "data_files/chat_files"
+            os.makedirs(directory, exist_ok=True)
+            orig_name = file.filename or "upload.bin"
+
+            suffix = Path(orig_name).suffix  # сохраним расширение, если есть
+
+            unique_filename = f"{uuid.uuid4().hex}{suffix}"
+            file_path = os.path.join(directory, unique_filename)
+            async with aiofiles.open(file_path, "wb") as out:
+                await out.write(file_bytes)
+
+            content_type = file.content_type or "application/octet-stream"
+
+            filename = orig_name
+
+            try:
+                file.file.seek(0)  # UploadFile.file — обычный file-like объект
+            except Exception:
+                pass
 
             if _is_minutes_analysis(prompt):
                 transcript = await transcribe_audio(file)
+
                 if not transcript.strip():
                     raise HTTPException(status_code=422, detail="Расшифровка пуста. Проверьте качество аудио.")
 
                 protocol = await generate_protocol_from_transcript(transcript)
+
                 await send_protocol_group(protocol)
 
                 return JSONResponse(
+
                     status_code=200,
-                    content=MinutesResponse(
-                        protocol=protocol
-                    ).model_dump()
+
+                    content=MinutesResponse(protocol=protocol).model_dump()
+
                 )
 
-            file_content = await file.read()
-            content_type = file.content_type
-            filename = file.filename
+            messages = await process_file(file_bytes, content_type, filename, prompt)
 
-            messages = await process_file(file_content, content_type, filename, prompt)
             messages.append({"role": "system", "content": SYSTEM_MD})
 
             response = openai.chat.completions.create(
@@ -306,25 +336,24 @@ async def chatgpt_endpoint(
                 max_tokens=1000
             )
 
-            response = response.choices[0].message.content
-            
-            file_path = f"data_files/chat_files/{filename}"
+            model_text = response.choices[0].message.content
             await MessageDAO.add(session, chat_id=chat_id, is_user=True, content=prompt, file_path=file_path)
-            response = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=response, file_path=None)
+
+            assistant_msg = await MessageDAO.add(session, chat_id=chat_id, is_user=False, content=model_text,
+                                                 file_path=None)
+
             await session.commit()
 
-        response["chat_id"] = chat_id
-        return {"message": response}
+            assistant_msg["chat_id"] = chat_id
+            assistant_msg["file_path"] = file_path
+
+            return {"message": assistant_msg}
 
     except Exception as e:
         return JSONResponse(
             status_code=500,
             content={"error": f"An error occurred: {str(e)}"}
         )
-
-
-
-
 
 
 @router.post("/analyze", response_model=MinutesResponse)
