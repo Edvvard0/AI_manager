@@ -378,7 +378,8 @@ async def analyze_minutes(
         ).model_dump()
     )
 
-@router.get("/search", response_model=list[ChatMessageSearchOut])
+
+@router.get("/search")
 async def search_chats_and_messages(
     q: str,
     session: SessionDep,

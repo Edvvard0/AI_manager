@@ -84,7 +84,7 @@ class TaskDAO(BaseDAO):
         через триграммный fuzzy search (pg_trgm).
         """
 
-        await session.execute(select(func.set_limit(cast(0.05, REAL))))
+        await session.execute(select(func.set_limit(cast(0.01, REAL))))
 
         # Конкатенация колонок
         columns = (

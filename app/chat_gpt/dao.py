@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 from sqlalchemy import select, desc, asc, or_, func, cast, REAL, text
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.chat_gpt.models import Chat, Message
 from app.chat_gpt.schemas import ChatSearchResult
@@ -117,8 +118,33 @@ class MessageDAO(BaseDAO):
 
 class SearchDAO:
     @classmethod
-    async def search_chats_and_messages(cls, session: AsyncSession, query: str):
-        await session.execute(select(func.set_limit(cast(0.05, REAL))))
+    async def search_chats_and_messages(cls, session, query: str, threshold: float = 0.05):
+        # Пытаемся настроить порог для % (может не получиться, если нет прав/расширения)
+        use_percent = True
+        try:
+            # одна транзакция ⇒ одно соединение ⇒ set_limit действует на следующий запрос
+            await session.execute(text("SELECT set_limit(:v)"), {"v": threshold})
+        except ProgrammingError:
+            use_percent = False  # fallback без set_limit
+
+        rank = func.greatest(
+            func.similarity(Chat.title, query),
+            func.similarity(Message.content, query),
+        ).label("rank")
+
+        if use_percent:
+            where_clause = or_(
+                Chat.title.op("%")(query),
+                Message.content.op("%")(query),
+                Message.content.ilike(f"%{query}%"),
+            )
+        else:
+            # Fallback без set_limit: фильтруем по similarity >= threshold
+            where_clause = or_(
+                func.similarity(Chat.title, query) >= threshold,
+                func.similarity(Message.content, query) >= threshold,
+                Message.content.ilike(f"%{query}%"),
+            )
 
         stmt = (
             select(
@@ -126,21 +152,12 @@ class SearchDAO:
                 Chat.title.label("chat_title"),
                 Message.id.label("message_id"),
                 Message.content.label("message_content"),
-                func.greatest(
-                    func.similarity(Chat.title, query),
-                    func.similarity(Message.content, query)
-                ).label("rank"),
+                rank,
             )
             .outerjoin(Message, Chat.id == Message.chat_id)
-            .where(
-                or_(
-                    Chat.title.op("%")(query),
-                    Message.content.op("%")(query),
-                    Message.content.ilike(f"%{query}%")
-                )
-            )
+            .where(where_clause)
             .order_by(text("rank DESC"))
         )
 
-        result = await session.execute(stmt)
-        return [ChatSearchResult(**row._mapping) for row in result.all()]
+        res = await session.execute(stmt)
+        return [ChatSearchResult(**row._mapping) for row in res.all()]
