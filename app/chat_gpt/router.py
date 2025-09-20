@@ -382,10 +382,15 @@ async def analyze_minutes(
 @router.get("/search")
 async def search_chats_and_messages(
     q: str,
+    tg_id: int,
     session: SessionDep,
 ):
-    results = await SearchDAO.search_chats_and_messages(session, q)
-    return results
+    try:
+        return await SearchDAO.search_chats_and_messages(session, query=q, tg_id=tg_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
 
 
 @router.get("/file/{file_path:path}")

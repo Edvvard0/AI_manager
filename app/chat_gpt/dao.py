@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, desc, asc, or_, func, cast, REAL, text
+from fastapi import HTTPException
+from sqlalchemy import select, desc, asc, or_, func, cast, REAL, text, literal, and_
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.chat_gpt.models import Chat, Message
@@ -118,33 +119,75 @@ class MessageDAO(BaseDAO):
 
 class SearchDAO:
     @classmethod
-    async def search_chats_and_messages(cls, session, query: str, threshold: float = 0.05):
-        # Пытаемся настроить порог для % (может не получиться, если нет прав/расширения)
-        use_percent = True
+    async def search_chats_and_messages(
+        cls,
+        session: AsyncSession,
+        query: str,
+        tg_id: int,
+        threshold: float = 0.05
+    ):
+        # 0) Кто ищет?
+        user = (await session.execute(select(User).where(User.tg_id == tg_id))).scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User with this tg_id not found")
+
+        # обычный юзер — только свои чаты
+        owner_filter = None if user.is_admin else (Chat.user_id == user.id)
+
+        term = (query or "").strip()
+        if not term:
+            return []
+
+        term_norm = term.lower()
+
+        # 1) Проверяем наличие pg_trgm (similarity) и пытаемся выставить set_limit
+        has_trgm = True
         try:
-            # одна транзакция ⇒ одно соединение ⇒ set_limit действует на следующий запрос
-            await session.execute(text("SELECT set_limit(:v)"), {"v": threshold})
-        except ProgrammingError:
-            use_percent = False  # fallback без set_limit
+            await session.execute(text("SELECT public.similarity('a','a')"))
+        except Exception:
+            has_trgm = False
 
-        rank = func.greatest(
-            func.similarity(Chat.title, query),
-            func.similarity(Message.content, query),
-        ).label("rank")
+        set_limit_ok = False
+        if has_trgm:
+            try:
+                await session.execute(text("SELECT public.set_limit(:v)"), {"v": threshold})
+                set_limit_ok = True
+            except Exception:
+                set_limit_ok = False
 
-        if use_percent:
-            where_clause = or_(
-                Chat.title.op("%")(query),
-                Message.content.op("%")(query),
-                Message.content.ilike(f"%{query}%"),
-            )
+        # 2) Нормализация под регистрозависимые триграммы
+        title_l = func.lower(Chat.title)
+        content_l = func.lower(Message.content)
+
+        if has_trgm:
+            rank = func.greatest(
+                func.similarity(title_l, term_norm),
+                func.similarity(content_l, term_norm),
+            ).label("rank")
+
+            if set_limit_ok:
+                where_text = or_(
+                    title_l.op("%")(term_norm),
+                    content_l.op("%")(term_norm),
+                    Chat.title.ilike(f"%{term}%"),
+                    Message.content.ilike(f"%{term}%"),
+                )
+            else:
+                where_text = or_(
+                    func.similarity(title_l, term_norm) >= threshold,
+                    func.similarity(content_l, term_norm) >= threshold,
+                    Chat.title.ilike(f"%{term}%"),
+                    Message.content.ilike(f"%{term}%"),
+                )
         else:
-            # Fallback без set_limit: фильтруем по similarity >= threshold
-            where_clause = or_(
-                func.similarity(Chat.title, query) >= threshold,
-                func.similarity(Message.content, query) >= threshold,
-                Message.content.ilike(f"%{query}%"),
+            # без pg_trgm — простой ILIKE
+            rank = literal(0).label("rank")
+            where_text = or_(
+                Chat.title.ilike(f"%{term}%"),
+                Message.content.ilike(f"%{term}%"),
             )
+
+        where_clause = where_text if owner_filter is None else and_(owner_filter, where_text)
 
         stmt = (
             select(
@@ -160,4 +203,6 @@ class SearchDAO:
         )
 
         res = await session.execute(stmt)
-        return [ChatSearchResult(**row._mapping) for row in res.all()]
+        # Если у тебя есть pydantic-модель ChatSearchResult:
+        # return [ChatSearchResult(**row._mapping) for row in res.all()]
+        return [dict(row._mapping) for row in res.all()]
