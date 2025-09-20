@@ -1,3 +1,9 @@
+import os
+import uuid
+from pathlib import Path
+from urllib.parse import quote
+
+import aiofiles
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
@@ -20,22 +26,47 @@ async def create_task(task_data: TaskCreate, session: AsyncSession = Depends(get
 
 
 @router.post("/upload_file/{task_id}")
-async def upload_file_for_task(session: SessionDep, task_id: int, file: UploadFile = File(...)):
-    print(f"загрузка файла {task_id}")
+async def upload_file_for_task(
+    session: SessionDep,
+    task_id: int,
+    file: UploadFile = File(...)
+):
+    # 1) Проверим, что задача есть
     task = await TaskDAO.find_one_or_none_by_id(session, task_id)
-    file_path = None
-    if file and file.filename:
-        file_path = await save_uploaded_file(file)
+    if not task:
+        raise HTTPException(status_code=404, detail="Задача не найдена")
 
-    if file_path:
-        task.file_path = file_path
+    file_bytes = await file.read()
 
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Файл пуст или не был передан.")
+    directory = "data_files/chat_files"
+    os.makedirs(directory, exist_ok=True)
+    orig_name = file.filename or "upload.bin"
+
+    suffix = Path(orig_name).suffix  # сохраним расширение, если есть
+
+    unique_filename = f"{uuid.uuid4().hex}{suffix}"
+    file_path = os.path.join(directory, unique_filename)
+    async with aiofiles.open(file_path, "wb") as out:
+        await out.write(file_bytes)
+
+    try:
+        file.file.seek(0)  # UploadFile.file — обычный file-like объект
+    except Exception:
+        pass
+
+    public_base = "https://ai-meneger-edward0076.amvera.io"
+    relative_path = f"data_files/chat_files/{unique_filename}"
+    download_url = f"{public_base}/chat_gpt/file/{quote(relative_path, safe='')}"
+
+    task.file_path = download_url
     await session.commit()
 
     return {
         "message": "файл успешно сохранен",
+        "file_url": download_url,
     }
-
 
 # Получить все задачи
 @router.get("/")
@@ -55,9 +86,13 @@ async def get_tasks(
 
 
 @router.get("/search/tasks")
-async def search_tasks(q: str, session: SessionDep):
-    print(q)
-    return await TaskDAO.search(session, q)
+async def search_tasks(q: str, tg_id: int, session: SessionDep, limit: int = 20):
+    try:
+        return await TaskDAO.search(session, term=q, tg_id=tg_id, limit=limit)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
 
 
 # Получить задачу по id

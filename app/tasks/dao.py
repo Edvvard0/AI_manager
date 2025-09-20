@@ -1,12 +1,14 @@
 from typing import List
 
-from sqlalchemy import select, func, cast, REAL, text, or_
+from fastapi import HTTPException
+from sqlalchemy import select, func, cast, REAL, text, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from app.dao.base import BaseDAO
 from app.tasks.models import Task
 from app.tasks.schemas import TaskCreate, TaskFilter
+from app.users.models import User
 
 
 class TaskDAO(BaseDAO):
@@ -76,76 +78,126 @@ class TaskDAO(BaseDAO):
         result = await session.execute(query)
         return result.scalars().all()
 
-
     @classmethod
-    async def search(cls, session: AsyncSession, term: str, limit: int = 20, threshold: float = 0.08):
-        """
-        Поиск задач по title/description/comment:
-        1) pg_trgm (если доступен): columns % term, сортировка similarity DESC
-        2) FTS (если доступен): search_vector @@ plainto_tsquery, сортировка ts_rank DESC
-        3) Fallback: ILIKE
-        """
+    async def search(
+            cls,
+            session: AsyncSession,
+            term: str,
+            tg_id: int,
+            limit: int = 20,
+            threshold: float = 0.10,
+    ):
+        # кто ищет
+        user = (await session.execute(select(User).where(User.tg_id == tg_id))).scalars().first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User with this tg_id not found")
 
-        # 0) Собираем «единый текст» задачи
-        columns = func.concat_ws(
-            " ",
-            func.coalesce(Task.title, ""),
-            func.coalesce(Task.description, ""),
-            func.coalesce(Task.comment, ""),
+        only_my_filter = None if user.is_admin else (Task.executor_id == user.id)
+
+        term = (term or "").strip()
+        if not term:
+            return []
+
+        # нормализуем под триграммы (регистрозависимость)
+        columns = func.lower(
+            func.concat_ws(
+                " ",
+                func.coalesce(Task.title, ""),
+                func.coalesce(Task.description, ""),
+                func.coalesce(Task.comment, ""),
+            )
         ).self_group()
+        term_norm = term.lower()
 
-        # 1) Пытаемся использовать pg_trgm
+        # помощник: сериализация задачи с исполнителем
+        def _serialize_task(t: Task) -> dict:
+            exec_ = t.executor
+            return {
+                "id": t.id,
+                "title": t.title,
+                "description": t.description,
+                "deadline_date": t.deadline_date,
+                "status": t.status,
+                "comment": t.comment,
+                "file_path": t.file_path,
+                "tag": t.tag,
+                "project_id": t.project_id,
+                "executor_id": t.executor_id,
+                "executor": None if not exec_ else {
+                    "id": exec_.id,
+                    "name": exec_.name,
+                    "username": exec_.username,
+                    "department": exec_.department,
+                    "tg_id": exec_.tg_id,
+                    "is_admin": exec_.is_admin,
+                },
+            }
+
+        # пробуем pg_trgm
         use_trgm = True
         try:
-            # set_limit действует в рамках соединения; вызываем на той же сессии
-            await session.execute(text("SELECT set_limit(:v)"), {"v": threshold})
-            # быстрая проверка наличия similarity()
-            await session.execute(text("SELECT similarity('a','a')"))
+            await session.execute(text("SELECT public.set_limit(:v)"), {"v": threshold})
+            await session.execute(text("SELECT public.similarity('a','a')"))
         except Exception:
             use_trgm = False
 
         if use_trgm:
-            rank = func.similarity(columns, term).label("rank")
-            where_clause = columns.op("%")(term)  # триграммный оператор
+            rank = func.similarity(columns, term_norm).label("rank")
+            where_clause = columns.op("%")(term_norm)
+            if only_my_filter is not None:
+                where_clause = and_(where_clause, only_my_filter)
+
             stmt = (
                 select(Task)
+                .options(joinedload(Task.executor))
                 .where(where_clause)
                 .order_by(rank.desc())
                 .limit(limit)
             )
             res = await session.execute(stmt)
-            return res.scalars().all()
+            tasks: List[Task] = res.scalars().unique().all()
+            return [_serialize_task(t) for t in tasks]
 
-        # 2) FTS (у тебя есть TSVectorType + GIN-индекс ix_tasks_search)
+        # FTS
         try:
-            tsq = func.plainto_tsquery(term)
+            tsq = func.plainto_tsquery(term_norm)
             rank = func.ts_rank_cd(Task.search_vector, tsq)
+            where_clause = Task.search_vector.op("@@")(tsq)
+            if only_my_filter is not None:
+                where_clause = and_(where_clause, only_my_filter)
+
             stmt = (
                 select(Task)
-                .where(Task.search_vector.op("@@")(tsq))
+                .options(joinedload(Task.executor))
+                .where(where_clause)
                 .order_by(rank.desc())
                 .limit(limit)
             )
             res = await session.execute(stmt)
-            return res.scalars().all()
+            tasks: List[Task] = res.scalars().unique().all()
+            return [_serialize_task(t) for t in tasks]
         except Exception:
             pass
 
-        # 3) Fallback: простые ILIKE (медленно, но работает везде)
+        # ILIKE fallback
         like = f"%{term}%"
+        where_clause = or_(
+            Task.title.ilike(like),
+            Task.description.ilike(like),
+            Task.comment.ilike(like),
+        )
+        if only_my_filter is not None:
+            where_clause = and_((where_clause), only_my_filter)
+
         stmt = (
             select(Task)
-            .where(
-                or_(
-                    Task.title.ilike(like),
-                    Task.description.ilike(like),
-                    Task.comment.ilike(like),
-                )
-            )
+            .options(joinedload(Task.executor))
+            .where(where_clause)
             .limit(limit)
         )
         res = await session.execute(stmt)
-        return res.scalars().all()
+        tasks: List[Task] = res.scalars().unique().all()
+        return [_serialize_task(t) for t in tasks]
 
     @classmethod
     async def find_task_by_tg_id(cls, session: AsyncSession, **filter_by):
