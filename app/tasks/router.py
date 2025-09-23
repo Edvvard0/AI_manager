@@ -13,6 +13,7 @@ from app.database import get_session, SessionDep
 from app.tasks.dao import TaskDAO
 from app.tasks.schemas import TaskOut, TaskCreate, TaskUpdate, TaskFilter
 from app.tasks.utils import save_uploaded_file
+from app.users.dao import UserDAO
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -107,23 +108,67 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_sessi
 # Получить все задачи конкретного пользователя
 @router.get("/user/{tg_id}")
 async def get_tasks_for_user(tg_id: int, session: AsyncSession = Depends(get_session)):
-    tasks = await TaskDAO.find_task_by_tg_id(session, **{"tg_id": tg_id })
-    return tasks
+    user = await UserDAO.find_one_or_none(session=session, tg_id=tg_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.is_admin:
+        return await TaskDAO.find_all(session)
+
+    return await TaskDAO.find_task_by_tg_id(session, **{"tg_id": tg_id })
 
 
-# Обновление задачи
+# Обновление задачи — только руководитель
 @router.patch("/{task_id}")
-async def update_task(task_id: int, task_data: TaskUpdate, session: AsyncSession = Depends(get_session)):
-    updated_count = await TaskDAO.update(session, {"id": task_id}, **task_data.dict(exclude_unset=True))
-    if updated_count == 0:
-        raise HTTPException(status_code=404, detail="Task not found or no changes made")
-    return {"status": "success", "updated": updated_count}
+async def update_task(
+    task_id: int,
+    task_data: TaskUpdate,
+    tg_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await UserDAO.find_one_or_none(session=session, tg_id=tg_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can update tasks")
 
+    try:
+        updated_count = await TaskDAO.update(
+            session,
+            {"id": task_id},
+            **task_data.model_dump(exclude_unset=True),
+        )
+        if updated_count == 0:
+            await session.rollback()
+            raise HTTPException(status_code=404, detail="Task not found or no changes made")
 
-# Удаление задачи
+        await session.commit()
+        return {"status": "success", "updated": updated_count}
+    except:
+        await session.rollback()
+        raise
+
+# Удаление задачи — только руководитель
 @router.delete("/{task_id}")
-async def delete_task(task_id: int, session: AsyncSession = Depends(get_session)):
-    deleted_count = await TaskDAO.delete(session, id=task_id)
-    if deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return {"status": "success", "deleted": deleted_count}
+async def delete_task(
+    task_id: int,
+    tg_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    user = await UserDAO.find_one_or_none(session=session, tg_id=tg_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="Only admins can delete tasks")
+
+    try:
+        deleted_count = await TaskDAO.delete(session, id=task_id)
+        if deleted_count == 0:
+            await session.rollback()
+            raise HTTPException(status_code=404, detail="Task not found")
+
+        await session.commit()
+        return {"status": "success", "deleted": deleted_count}
+    except:
+        await session.rollback()
+        raise

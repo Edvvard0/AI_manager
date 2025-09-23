@@ -5,6 +5,8 @@ from sqlalchemy import select, func, cast, REAL, text, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from sqlalchemy import update as sa_update, delete as sa_delete
+
 from app.dao.base import BaseDAO
 from app.tasks.models import Task
 from app.tasks.schemas import TaskCreate, TaskFilter
@@ -211,3 +213,20 @@ class TaskDAO(BaseDAO):
             )
         )
         return result.scalars().all()
+
+
+    @classmethod
+    async def update(cls, session, filters: dict, **values) -> int:
+        conds = [(getattr(cls.model, k) == v) for k, v in filters.items()]
+        stmt = sa_update(cls.model).where(*conds).values(**values)
+        res = await session.execute(stmt)
+        # коммит НЕ здесь
+        return res.rowcount or 0
+
+    @classmethod
+    async def delete(cls, session, **filters) -> int:
+        conds = [(getattr(cls.model, k) == v) for k, v in filters.items()]
+        stmt = sa_delete(cls.model).where(*conds)
+        res = await session.execute(stmt)
+        # коммит НЕ здесь
+        return res.rowcount or 0
