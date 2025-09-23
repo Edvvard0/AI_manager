@@ -143,18 +143,26 @@ async def process_name(message: Message, state: FSMContext):
 async def process_department(message: Message, state: FSMContext):
     data = await state.get_data()
 
+    dept_raw = (message.text or "").strip()
+    # флаг руководителя: нечувствительно к регистру, срабатывает при любой подстроке "руководитель"
+    is_admin_flag = "руководитель" in dept_raw.casefold()
+
+    # username может быть None — сохраним None, а не "@None"
+    username_val = f"@{message.from_user.username}" if message.from_user.username else None
+
     async with async_session_maker() as session:
         user = User(
-            name=data["name"],
-            username="@" + str(message.from_user.username),  # Telegram username
-            tg_id=message.from_user.id,           # Telegram ID
-            department=message.text,
-            is_admin=False
+            name=(data.get("name") or "").strip(),
+            username=username_val,
+            tg_id=message.from_user.id,
+            department=dept_raw,        # сохраняем как ввёл пользователь
+            is_admin=is_admin_flag      # <-- вот главное изменение
         )
         session.add(user)
         await session.commit()
 
-    await message.answer("✅ Вы успешно зарегистрированы!")
+    note = " (зарегистрированы как Руководитель)" if is_admin_flag else ""
+    await message.answer(f"✅ Вы успешно зарегистрированы!{note}")
     await state.clear()
 
 

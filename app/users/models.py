@@ -18,7 +18,9 @@ class User(Base):
     is_admin: Mapped[bool]= mapped_column(default=False)
 
     tasks: Mapped[list["Task"]] = relationship(
-        back_populates="executor", cascade="all, delete-orphan"
+        back_populates="executor",
+        cascade="all, delete-orphan",
+        passive_deletes=True
     )
     chats: Mapped["Chat"] = relationship(back_populates="user")
     projects: Mapped["Project"] = relationship(back_populates="user")

@@ -17,7 +17,7 @@ class Task(Base):
     deadline_date: Mapped[date]
 
     executor_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="SET NULL"), nullable=False
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
 
     # связь только с проектом
