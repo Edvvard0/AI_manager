@@ -28,6 +28,7 @@ from app.chat_gpt.utils.utils_token import calculate_daily_usage
 from app.config import settings
 from app.database import get_session, SessionDep
 from app.chat_gpt.dao import ChatDAO, MessageDAO, SearchDAO
+from app.users.dao import UserDAO
 
 router = APIRouter(prefix="/chat_gpt", tags=["ChatGPT"])
 
@@ -222,6 +223,14 @@ async def chatgpt_endpoint(
 ):
     try:
         mode = check_keywords(prompt)
+
+        user = await UserDAO.find_one_or_none(session=session, tg_id=tg_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        is_command = mode in {"distribute", "status", "status_all", "minutes_start"}
+        if is_command and not user.is_admin:
+            raise HTTPException(status_code=403, detail="Only admins can run commands")
 
         # --- ВСЕГДА ОБРАБАТЫВАЕМ РАСПРЕДЕЛЕНИЕ ОТДЕЛЬНО ---
         if mode == "distribute":
