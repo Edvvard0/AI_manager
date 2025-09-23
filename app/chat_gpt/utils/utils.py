@@ -38,7 +38,7 @@ async def get_minutes_tasks(session: SessionDep):
     result = await session.execute(query)
     tasks = result.scalars().all()
 
-    # print(tasks)
+    print(tasks)
     if not tasks:
         return "Задач с тегом 'пятиминутка' не найдено."
 
@@ -177,20 +177,33 @@ async def create_response_gpt(session: SessionDep, text: str, chat_id: int, proj
         gpt_input.append({"role": "user", "content": tasks_info})
 
     elif action == "minutes_start":
+        sys_minutes = (
+            "Ты ассистент для короткой планёрки («пятиминутки»). "
+            "Дай компактный список открытых и просроченных задач на сегодня: "
+            "пунктами: [Исполнитель] — Задача — дедлайн — текущий статус. "
+            "Сначала просроченные, затем на сегодня, затем прочие. Без лишних вступлений."
+        )
+        gpt_input = [{"role": "system", "content": sys_minutes}]
         minutes_tasks = await get_minutes_tasks(session)
         gpt_input.append({"role": "user", "content": minutes_tasks})
+        gpt_input.append({"role": "user", "content": text})
 
     elif action == "status":
-        task_info = await get_tasks_info(session, project_id=project_id)
-        worker_info = await get_worker_info(session)
-        gpt_input.append({"role": "user", "content": task_info})
-        gpt_input.append({"role": "user", "content": worker_info})
+            task_info = await get_tasks_info(session, project_id=project_id)
+            worker_info = await get_worker_info(session)
+            gpt_input.append({"role": "user", "content": task_info})
+            gpt_input.append({"role": "user", "content": worker_info})
 
     elif action == "status_all":
+        sys_status_all = (
+            "Кратко отдай статус по всем задачам: сгруппируй по исполнителям, отметь просрочки и близкие дедлайны."
+        )
+        gpt_input = [{"role": "system", "content": sys_status_all}]
         task_info = await get_tasks_info(session, project_id=None)
         worker_info = await get_worker_info(session)
         gpt_input.append({"role": "user", "content": task_info})
         gpt_input.append({"role": "user", "content": worker_info})
+        gpt_input.append({"role": "user", "content": text})
 
     # История → текущий вопрос
     for msg in messages:
